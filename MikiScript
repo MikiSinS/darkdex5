@@ -948,6 +948,66 @@ ConfigBoxVisible:AddButton("Delete Config", {
     end
 })
 
+ConfigBoxVisible:AddDropdown("Miki_AutoloadConfig", {
+    Values = SaveManager:RefreshConfigList(),
+    Default = nil,
+    AllowNull = true,
+    Text = "Autoload config"
+})
+
+ConfigBoxVisible:AddButton("Set Autoload", {
+    Text = "Set Autoload",
+    Func = function()
+        local Name = Options.Miki_AutoloadConfig and Options.Miki_AutoloadConfig.Value
+
+        if not Name or tostring(Name):gsub("%s", "") == "" then
+            Library:Notify("Выбери конфиг для автозагрузки", 2)
+            return
+        end
+
+        writefile(
+            SaveManager.Folder .. "/settings/autoload.txt",
+            tostring(Name)
+        )
+
+        Library:Notify("Autoload set: " .. tostring(Name))
+    end
+})
+
+ConfigBoxVisible:AddButton("Clear Autoload", {
+    Text = "Clear Autoload",
+    Func = function()
+        local AutoFile = SaveManager.Folder .. "/settings/autoload.txt"
+
+        if isfile(AutoFile) then
+            delfile(AutoFile)
+        end
+
+        if Options.Miki_AutoloadConfig then
+            Options.Miki_AutoloadConfig:SetValue(nil)
+        end
+
+        Library:Notify("Autoload cleared")
+    end
+})
+
+ConfigBoxVisible:AddButton("Refresh Autoload List", {
+    Text = "Refresh Autoload List",
+    Func = function()
+        if Options.Miki_AutoloadConfig then
+            Options.Miki_AutoloadConfig:SetValues(SaveManager:RefreshConfigList())
+        end
+
+        Library:Notify("Autoload list refreshed")
+    end
+})
+
+local AutoFile = SaveManager.Folder .. "/settings/autoload.txt"
+if isfile(AutoFile) and Options.Miki_AutoloadConfig then
+    local AutoName = readfile(AutoFile)
+    Options.Miki_AutoloadConfig:SetValue(AutoName)
+end
+
 ConfigBoxVisible:AddLabel("Folder: MikiGui/settings")
 
 
