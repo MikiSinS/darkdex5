@@ -24,6 +24,8 @@ local EggWaitAfter = 1
 local BaseTeleportTime = 1
 local HeightAboveBase = 100
 local NoClipConnection = nil
+local EggFlightConnection = nil
+local EggFlightHeight = 3
 
 -- URL этого скрипта для Auto Execute после телепорта
 local ScriptURL = "https://raw.githubusercontent.com/MikiSinS/darkdex5/main/MikiScript"
@@ -170,9 +172,50 @@ local function SetNoClip(State)
     end
 end
 
+local function StopEggFlight()
+    if EggFlightConnection then
+        EggFlightConnection:Disconnect()
+        EggFlightConnection = nil
+    end
+end
+
+local function StartEggFlight(Handle)
+    StopEggFlight()
+
+    if not Handle or not Handle.Parent or not pl or not pl.Parent then
+        return false
+    end
+
+    pl.Anchored = true
+
+    local function LockToEgg()
+        if not Enabled or not Handle.Parent or not pl or not pl.Parent then
+            return
+        end
+
+        local TargetPosition = Handle.Position + Vector3.new(0, EggFlightHeight, 0)
+
+        pl.AssemblyLinearVelocity = Vector3.zero
+        pl.AssemblyAngularVelocity = Vector3.zero
+        pl.CFrame = CFrame.new(TargetPosition)
+    end
+
+    LockToEgg()
+
+    EggFlightConnection = RunService.Heartbeat:Connect(function()
+        LockToEgg()
+    end)
+
+    return true
+end
+
 local function DisableFlight()
+    StopEggFlight()
+
     if pl and pl.Parent then
         pl.Anchored = false
+        pl.AssemblyLinearVelocity = Vector3.zero
+        pl.AssemblyAngularVelocity = Vector3.zero
     end
 end
 
@@ -340,25 +383,17 @@ local function CollectEgg(egg)
         return
     end
 
-    DisableFlight()
-
-    -- Всегда держим персонажа вплотную к яйцу во время цикла
-    pl.CFrame = Handle.CFrame
+    StartEggFlight(Handle)
 
     task.wait(0.1)
 
-    if not Enabled or not egg.Parent then
+    if not Enabled or not egg.Parent or not Handle.Parent then
+        DisableFlight()
         return
     end
 
     while egg.Parent and Enabled do
-        if Handle.Parent then
-            pl.CFrame = Handle.CFrame
-            task.wait()
-            if Handle.Parent then
-                pl.CFrame = Handle.CFrame
-            end
-        else
+        if not Handle.Parent then
             break
         end
 
@@ -367,13 +402,15 @@ local function CollectEgg(egg)
         local StartTime = tick()
 
         while tick() - StartTime < EInterval do
-            if not Enabled or not egg.Parent then
+            if not Enabled or not egg.Parent or not Handle.Parent then
                 break
             end
 
             task.wait(0.05)
         end
     end
+
+    StopEggFlight()
 
     if not Enabled then
         return
