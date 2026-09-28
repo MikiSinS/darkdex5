@@ -292,62 +292,60 @@ local function TeleportToOwnPlot()
         return false
     end
 
+    StopEggHover()
+    SetNoClip(true)
+
     local BasePosition = Baseplate.Position
-    local CurrentPosition = pl.Position
+    local TargetPosition = Vector3.new(
+        BasePosition.X,
+        BasePosition.Y + HeightAboveBase,
+        BasePosition.Z
+    )
 
-    local BaseY = BasePosition.Y
-    local CurrentY = CurrentPosition.Y
+    pl.Anchored = true
+    pl.AssemblyLinearVelocity = Vector3.zero
+    pl.AssemblyAngularVelocity = Vector3.zero
 
-    if BaseY < CurrentY then
+    local Tween = TweenService:Create(
+        pl,
+        TweenInfo.new(
+            BaseTeleportTime,
+            Enum.EasingStyle.Linear,
+            Enum.EasingDirection.Out
+        ),
+        {
+            CFrame = CFrame.new(TargetPosition)
+        }
+    )
+
+    Tween:Play()
+
+    while Tween.PlaybackState == Enum.PlaybackState.Playing do
+        if not Enabled then
+            Tween:Cancel()
+            pl.Anchored = false
+            SetNoClip(false)
+            return false
+        end
+
         pl.Anchored = true
-
-        pl.CFrame = CFrame.new(
-            CurrentPosition.X,
-            BaseY + HeightAboveBase,
-            CurrentPosition.Z
-        )
-
-        if not Enabled then
-            DisableFlight()
-            return false
-        end
-
-        local FlyPosition = Vector3.new(
-            BasePosition.X,
-            BaseY + HeightAboveBase,
-            BasePosition.Z
-        )
-
-        SmoothTeleport(
-            CFrame.new(FlyPosition),
-            BaseTeleportTime
-        )
-
-        if not Enabled then
-            DisableFlight()
-            return false
-        end
-
-        DisableFlight()
-    else
-        local FlyPosition = Vector3.new(
-            BasePosition.X,
-            CurrentY,
-            BasePosition.Z
-        )
-
-        SmoothTeleport(
-            CFrame.new(FlyPosition),
-            BaseTeleportTime
-        )
-
-        if not Enabled then
-            DisableFlight()
-            return false
-        end
-
-        DisableFlight()
+        pl.AssemblyLinearVelocity = Vector3.zero
+        pl.AssemblyAngularVelocity = Vector3.zero
+        task.wait()
     end
+
+    if not Enabled then
+        pl.Anchored = false
+        SetNoClip(false)
+        return false
+    end
+
+    pl.CFrame = CFrame.new(TargetPosition)
+    pl.Anchored = false
+    pl.AssemblyLinearVelocity = Vector3.zero
+    pl.AssemblyAngularVelocity = Vector3.zero
+
+    SetNoClip(false)
 
     return true
 end
