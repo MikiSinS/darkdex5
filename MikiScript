@@ -106,25 +106,20 @@ local Window = Library:CreateWindow({
     AutoShow = true,
 })
 
--- Меню скрывается/показывается через RightShift по умолчанию.
-local MenuKeyPicker = Window:AddKeyPicker("MenuKeybind", {
-    Default = "RightShift",
-    NoUI = true,
-    Text = "Menu Keybind",
-})
-
-MenuKeyPicker:OnChanged(function()
-    local Key = Options.MenuKeybind and Options.MenuKeybind.Value
-
-    if Key then
-        MenuKeybind = Key
-    end
-end)
-
 local Tabs = {
     Egg = Window:AddTab("AutoEgg"),
     Settings = Window:AddTab("Settings"),
 }
+
+local MenuBox = Tabs.Settings:AddLeftGroupbox("Menu")
+
+MenuBox:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
+    Default = "RightShift",
+    NoUI = true,
+    Text = "Menu keybind"
+})
+
+Library.ToggleKeybind = Options.MenuKeybind
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local eggfolder = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Eggs")
@@ -712,7 +707,7 @@ WebhookBox:AddLabel("Events: Egg caught + base teleport")
 
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
+SaveManager:SetIgnoreIndexes({"MenuKeybind"})
 SaveManager:SetFolder("MikiGui")
 SaveManager:BuildConfigSection(Tabs.Settings)
 
