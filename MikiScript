@@ -142,6 +142,16 @@ local Tabs = {
     Settings = Window:AddTab("Settings"),
 }
 
+-- Оставляем только две вкладки: AutoEgg и Settings.
+pcall(function()
+    while #Window.Tabs > 2 do
+        local ExtraTab = table.remove(Window.Tabs, #Window.Tabs)
+        if ExtraTab and ExtraTab.HideTab then
+            ExtraTab:HideTab()
+        end
+    end
+end)
+
 local ConfigBoxEarly = Tabs.Settings:AddLeftGroupbox("CONFIGS")
 
 ConfigBoxEarly:AddLabel("Config system")
