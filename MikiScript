@@ -47,28 +47,52 @@ local Tabs = {
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local eggfolder = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Eggs")
 
-local function GetLuckValue(egg)
-    if not egg then
-        return "?"
-    end
-
-    local Luck = egg:FindFirstChild("Luck", true)
-
-    if Luck then
-        if Luck:IsA("ValueBase") then
-            return tostring(Luck.Value)
+local function GetLuckValue(eggName, fallbackEgg)
+    local function ReadLuck(egg)
+        if not egg then
+            return nil
         end
 
-        local AttributeLuck = Luck:GetAttribute("Value")
+        local Luck = egg:FindFirstChild("Luck", true)
+
+        if Luck then
+            if Luck:IsA("ValueBase") then
+                return Luck.Value
+            end
+
+            local Value = Luck:GetAttribute("Value")
+            if Value ~= nil then
+                return Value
+            end
+        end
+
+        local AttributeLuck = egg:GetAttribute("Luck")
+
         if AttributeLuck ~= nil then
-            return tostring(AttributeLuck)
+            return AttributeLuck
+        end
+
+        return nil
+    end
+
+    local RenderedEggs = workspace:FindFirstChild("RenderedEggs")
+
+    if RenderedEggs and eggName then
+        for _, RenderedEgg in ipairs(RenderedEggs:GetChildren()) do
+            if RenderedEgg.Name == eggName then
+                local Luck = ReadLuck(RenderedEgg)
+
+                if Luck ~= nil then
+                    return tostring(Luck)
+                end
+            end
         end
     end
 
-    local AttributeLuck = egg:GetAttribute("Luck")
+    local Luck = ReadLuck(fallbackEgg)
 
-    if AttributeLuck ~= nil then
-        return tostring(AttributeLuck)
+    if Luck ~= nil then
+        return tostring(Luck)
     end
 
     return "?"
@@ -98,7 +122,7 @@ for _, egg1 in ipairs(eggfolder:GetChildren()) do
     if not usr[egg1.Name] then
         usr[egg1.Name] = true
 
-        local Luck = GetLuckValue(egg1)
+        local Luck = GetLuckValue(egg1.Name, egg1)
         local DisplayName = egg1.Name .. " | Luck: " .. Luck
 
         table.insert(list, DisplayName)
