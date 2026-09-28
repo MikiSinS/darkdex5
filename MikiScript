@@ -78,6 +78,22 @@ local list = {}
 local EggDisplayToName = {}
 local usr = {}
 
+local RenderedEggs = workspace:FindFirstChild("RenderedEggs")
+
+if RenderedEggs then
+    for _, renderedEgg in ipairs(RenderedEggs:GetChildren()) do
+        if not usr[renderedEgg.Name] then
+            usr[renderedEgg.Name] = true
+
+            local Luck = GetLuckValue(renderedEgg)
+            local DisplayName = renderedEgg.Name .. " | Luck: " .. Luck
+
+            table.insert(list, DisplayName)
+            EggDisplayToName[DisplayName] = renderedEgg.Name
+        end
+    end
+end
+
 for _, egg1 in ipairs(eggfolder:GetChildren()) do
     if not usr[egg1.Name] then
         usr[egg1.Name] = true
