@@ -6,7 +6,6 @@ local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local TweenService = game:GetService("TweenService")
 local VirtualUser = game:GetService("VirtualUser")
-local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -24,9 +23,6 @@ local EHoldTime = 0.1
 local EggWaitAfter = 1
 local BaseTeleportTime = 1
 local HeightAboveBase = 100
-local EggFlightHeight = 2
-local NoClipConnection = nil
-local EggFlightConnection = nil
 
 -- URL этого скрипта для Auto Execute после телепорта
 local ScriptURL = "https://raw.githubusercontent.com/MikiSinS/darkdex5/main/MikiScript"
@@ -138,60 +134,9 @@ local function PressE()
     )
 end
 
-local function SetNoClip(State)
-    if State then
-        if NoClipConnection then return end
-        NoClipConnection = RunService.Heartbeat:Connect(function()
-            if not Enabled then return end
-            if Character and Character.Parent then
-                for _, Part in ipairs(Character:GetDescendants()) do
-                    if Part:IsA("BasePart") then
-                        Part.CanCollide = false
-                        Part.CanTouch = false
-                    end
-                end
-            end
-        end)
-    else
-        if NoClipConnection then NoClipConnection:Disconnect(); NoClipConnection = nil end
-        if Character and Character.Parent then
-            for _, Part in ipairs(Character:GetDescendants()) do
-                if Part:IsA("BasePart") then
-                    Part.CanCollide = true
-                    Part.CanTouch = true
-                end
-            end
-        end
-    end
-end
-
-local function StopEggFlight()
-    if EggFlightConnection then
-        EggFlightConnection:Disconnect()
-        EggFlightConnection = nil
-    end
-end
-
-local function StartEggFlight(Handle)
-    StopEggFlight()
-    if not Handle or not Handle.Parent or not pl or not pl.Parent then return false end
-    pl.Anchored = true
-    EggFlightConnection = RunService.Heartbeat:Connect(function()
-        if not Enabled or not Handle.Parent or not pl.Parent then return end
-        pl.Anchored = true
-        pl.AssemblyLinearVelocity = Vector3.zero
-        pl.AssemblyAngularVelocity = Vector3.zero
-        pl.CFrame = CFrame.new(Handle.Position + Vector3.new(0, EggFlightHeight, 0))
-    end)
-    return true
-end
-
 local function DisableFlight()
-    StopEggFlight()
     if pl and pl.Parent then
         pl.Anchored = false
-        pl.AssemblyLinearVelocity = Vector3.zero
-        pl.AssemblyAngularVelocity = Vector3.zero
     end
 end
 
@@ -349,34 +294,53 @@ local function TeleportToOwnPlot()
 end
 
 local function CollectEgg(egg)
-    if not egg or not egg.Parent then return end
+    if not egg or not egg.Parent then
+        return
+    end
 
     local Handle = egg:FindFirstChild("Handle")
-    if not Handle or not Handle:IsA("BasePart") then return end
 
-    StartEggFlight(Handle)
+    if not Handle or not Handle:IsA("BasePart") then
+        return
+    end
 
-    while egg.Parent and Enabled and Handle.Parent do
-        local CycleStart = tick()
+    DisableFlight()
+
+    pl.CFrame = Handle.CFrame
+
+    task.wait(0.1)
+
+    if not Enabled or not egg.Parent then
+        return
+    end
+
+    while egg.Parent and Enabled do
+        if Handle.Parent then
+            pl.CFrame = Handle.CFrame
+        else
+            break
+        end
+
         PressE()
 
-        while tick() - CycleStart < EInterval do
-            if not Enabled or not egg.Parent or not Handle.Parent then break end
+        local StartTime = tick()
+
+        while tick() - StartTime < EInterval do
+            if not Enabled or not egg.Parent then
+                break
+            end
+
             task.wait(0.05)
         end
     end
 
-    StopEggFlight()
-
     if not Enabled then
-        DisableFlight()
         return
     end
 
     task.wait(EggWaitAfter)
 
     if not Enabled then
-        DisableFlight()
         return
     end
 
@@ -392,11 +356,8 @@ MainBox:AddToggle("Enable1", {
 
         if not Value then
             DisableFlight()
-            SetNoClip(false)
             return
         end
-
-        SetNoClip(true)
 
         task.spawn(function()
             while Enabled do
@@ -443,9 +404,7 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
     Character = NewCharacter
     pl = NewCharacter:WaitForChild("HumanoidRootPart")
 
-    if Enabled then
-        SetNoClip(true)
-    else
+    if not Enabled then
         DisableFlight()
     end
 end)
@@ -553,7 +512,6 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 Library:OnUnload(function()
     StopAntiAFK()
     DisableFlight()
-    SetNoClip(false)
 end)
 
 SaveManager:LoadAutoloadConfig()
