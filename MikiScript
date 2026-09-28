@@ -154,7 +154,7 @@ local Dropdown = MainBox:AddDropdown("AutoEgg", {
 
     Callback = function(Value)
         local NewSelectedEggs = {}
-        
+
         for DisplayName, Selected in pairs(Value) do
             if Selected then
                 local EggName = EggDisplayToName[DisplayName]
@@ -186,34 +186,33 @@ local Dropdown = MainBox:AddDropdown("AutoEgg", {
         SelectionOrder = NewOrder
         SelectedEggs = NewSelectedEggs
 
-        local NewList = {}
-        local Added = {}
-
-        for _, EggName in ipairs(SelectionOrder) do
-            for _, DisplayName in ipairs(list) do
-                if EggDisplayToName[DisplayName] == EggName and not Added[DisplayName] then
-                    table.insert(NewList, DisplayName)
-                    Added[DisplayName] = true
-                    break
-                end
-            end
-        end
-
-        for _, DisplayName in ipairs(list) do
-            if not Added[DisplayName] then
-                table.insert(NewList, DisplayName)
-                Added[DisplayName] = true
-            end
-        end
-
-        list = NewList
-
-        Dropdown:CloseDropdown()
-        Dropdown:SetValues(list)
-
         task.defer(function()
             if not Library.Unloaded then
-                Dropdown:OpenDropdown()
+                local NewList = {}
+                local Added = {}
+
+                for _, EggName in ipairs(SelectionOrder) do
+                    for _, DisplayName in ipairs(list) do
+                        if EggDisplayToName[DisplayName] == EggName
+                            and not Added[DisplayName] then
+
+                            table.insert(NewList, DisplayName)
+                            Added[DisplayName] = true
+                            break
+                        end
+                    end
+                end
+
+                for _, DisplayName in ipairs(list) do
+                    if not Added[DisplayName] then
+                        table.insert(NewList, DisplayName)
+                        Added[DisplayName] = true
+                    end
+                end
+
+                list = NewList
+
+                Dropdown:SetValues(list)
             end
         end)
     end
