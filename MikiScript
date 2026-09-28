@@ -19,7 +19,7 @@ local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 -- =========================================
 
 local EInterval = 1
-local EHoldTime = 0.1
+local EHoldTime = 1
 local EggWaitAfter = 1
 local BaseTeleportTime = 1
 local HeightAboveBase = 100
