@@ -20,7 +20,7 @@ local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 -- =========================================
 
 local EInterval = 2
-local EHoldTime = 1
+local EHoldTime = 2
 local EggWaitAfter = 1
 local BaseTeleportTime = 1
 local HeightAboveBase = 100
@@ -353,7 +353,7 @@ local function CollectEgg(egg)
 
         PressE()
 
-        local Remaining = EInterval - EHoldTime
+        local Remaining = math.max(0, EInterval - EHoldTime)
         if Remaining > 0 then
             task.wait(Remaining)
         end
