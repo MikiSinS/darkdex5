@@ -356,53 +356,31 @@ local function CollectEgg(egg)
     end
 
     local Handle = egg:FindFirstChild("Handle")
-
     if not Handle or not Handle:IsA("BasePart") then
         return
     end
 
+    -- Быстро телепортируемся к яйцу и зависаем над ним.
     SetNoClip(true)
     StartEggHover(Handle)
     pl.Anchored = true
 
-    while egg.Parent and Enabled and Handle.Parent do
-        StartEggHover(Handle)
-        pl.Anchored = true
+    -- Одно полное нажатие E: ровно 2 секунды.
+    PressE()
 
-        PressE()
-
-        local Remaining = math.max(0, EInterval - EHoldTime)
-        if Remaining > 0 then
-            task.wait(Remaining)
-        end
+    if not Enabled then
+        StopEggHover()
+        DisableFlight()
+        SetNoClip(false)
+        return
     end
 
+    -- После сбора обязательно возвращаемся на свой плот.
     StopEggHover()
 
-    if not Enabled then
-        DisableFlight()
-        SetNoClip(false)
-        return
-    end
-
-    task.wait(EggWaitAfter)
-
-    if not Enabled then
-        DisableFlight()
-        SetNoClip(false)
-        return
-    end
-
-    -- Сначала гарантированно отключаем удержание у яйца.
-    pl.Anchored = false
-    pl.AssemblyLinearVelocity = Vector3.zero
-    pl.AssemblyAngularVelocity = Vector3.zero
-
-    -- Затем летим прямо на свой плот.
     local Baseplate = GetOwnBaseplate()
-
     if not Baseplate then
-        DisableFlight()
+        pl.Anchored = false
         SetNoClip(false)
         return
     end
@@ -411,6 +389,8 @@ local function CollectEgg(egg)
 
     SetNoClip(true)
     pl.Anchored = true
+    pl.AssemblyLinearVelocity = Vector3.zero
+    pl.AssemblyAngularVelocity = Vector3.zero
 
     local Tween = TweenService:Create(
         pl,
@@ -433,7 +413,7 @@ local function CollectEgg(egg)
 
     if not Enabled then
         Tween:Cancel()
-        DisableFlight()
+        pl.Anchored = false
         SetNoClip(false)
         return
     end
@@ -443,8 +423,11 @@ local function CollectEgg(egg)
     pl.AssemblyLinearVelocity = Vector3.zero
     pl.AssemblyAngularVelocity = Vector3.zero
 
-    -- Только после прибытия на базу возвращаем нормальную коллизию.
+    -- На плоту снова нормальная коллизия.
     SetNoClip(false)
+
+    -- Небольшая пауза перед поиском следующего выбранного яйца.
+    task.wait(0.1)
 end
 
 MainBox:AddToggle("Enable1", {
