@@ -109,6 +109,7 @@ local Window = Library:CreateWindow({
 local Tabs = {
     Egg = Window:AddTab("AutoEgg"),
     Settings = Window:AddTab("Settings"),
+    Configs = Window:AddTab("Configs"),
 }
 
 local MenuBox = Tabs.Settings:AddLeftGroupbox("Menu")
@@ -710,6 +711,9 @@ SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({})
 SaveManager:SetFolder("MikiGui")
 SaveManager:BuildConfigSection(Tabs.Settings)
+
+-- Отдельная вкладка конфигов, чтобы меню Config всегда было доступно.
+SaveManager:BuildConfigSection(Tabs.Configs)
 
 Library:OnUnload(function()
     StopAntiAFK()
