@@ -112,6 +112,58 @@ local Tabs = {
     Configs = Window:AddTab("Configs"),
 }
 
+local ConfigBoxEarly = Tabs.Settings:AddRightGroupbox("Configs")
+
+ConfigBoxEarly:AddInput("Miki_ConfigName", {
+    Default = "",
+    Numeric = false,
+    Finished = false,
+    Text = "Config name",
+    Placeholder = "Config name"
+})
+
+ConfigBoxEarly:AddDropdown("Miki_ConfigList", {
+    Values = SaveManager:RefreshConfigList(),
+    AllowNull = true,
+    Text = "Config list"
+})
+
+ConfigBoxEarly:AddButton("Miki_SaveConfig", {
+    Text = "Save Config",
+    Func = function()
+        local Name = Options.Miki_ConfigName.Value
+        if Name and Name:gsub("%s", "") ~= "" then
+            local Success, Err = SaveManager:Save(Name)
+            if Success then
+                Options.Miki_ConfigList:SetValues(SaveManager:RefreshConfigList())
+            else
+                Library:Notify("Failed to save config: " .. tostring(Err))
+            end
+        end
+    end
+})
+
+ConfigBoxEarly:AddButton("Miki_LoadConfig", {
+    Text = "Load Config",
+    Func = function()
+        local Name = Options.Miki_ConfigList.Value
+        if Name then
+            local Success, Err = SaveManager:Load(Name)
+            if not Success then
+                Library:Notify("Failed to load config: " .. tostring(Err))
+            end
+        end
+    end
+})
+
+ConfigBoxEarly:AddButton("Miki_RefreshConfigs", {
+    Text = "Refresh Configs",
+    Func = function()
+        Options.Miki_ConfigList:SetValues(SaveManager:RefreshConfigList())
+        Options.Miki_ConfigList:SetValue(nil)
+    end
+})
+
 local MenuBox = Tabs.Settings:AddLeftGroupbox("Menu")
 
 MenuBox:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
