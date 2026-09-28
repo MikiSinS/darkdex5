@@ -389,17 +389,22 @@ local function CollectEgg(egg)
         end
     end
 
+    StopEggHover()
+
     if not Enabled then
+        DisableFlight()
         return
     end
 
     task.wait(EggWaitAfter)
 
     if not Enabled then
+        DisableFlight()
         return
     end
 
     TeleportToOwnPlot()
+    SetNoClip(false)
 end
 
 MainBox:AddToggle("Enable1", {
