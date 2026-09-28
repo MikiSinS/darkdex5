@@ -109,7 +109,6 @@ local Window = Library:CreateWindow({
 local Tabs = {
     Egg = Window:AddTab("AutoEgg"),
     Settings = Window:AddTab("Settings"),
-    Configs = Window:AddTab("Configs"),
 }
 
 local ConfigBoxEarly = Tabs.Settings:AddLeftGroupbox("CONFIGS")
@@ -825,46 +824,6 @@ ConfigBoxVisible:AddButton("Refresh Configs", {
 
 ConfigBoxVisible:AddLabel("Folder: MikiGui/settings")
 
-
--- Отдельная вкладка конфигов.
-local ConfigBox = Tabs.Configs:AddLeftGroupbox("Configs")
-
-ConfigBox:AddInput("ConfigName", {
-    Default = "",
-    Numeric = false,
-    Finished = false,
-    Text = "Config name",
-    Placeholder = "Config name"
-})
-
-ConfigBox:AddButton("SaveConfig", {
-    Text = "Save Config",
-    Func = function()
-        local Name = Options.ConfigName and Options.ConfigName.Value or ""
-        if Name ~= "" then
-            SaveManager:Save(Name)
-        end
-    end
-})
-
-ConfigBox:AddButton("LoadConfig", {
-    Text = "Load Config",
-    Func = function()
-        local Name = Options.ConfigName and Options.ConfigName.Value or ""
-        if Name ~= "" then
-            SaveManager:Load(Name)
-        end
-    end
-})
-
-ConfigBox:AddButton("RefreshConfigs", {
-    Text = "Refresh Configs",
-    Func = function()
-        SaveManager:RefreshConfigList()
-    end
-})
-
-ConfigBox:AddLabel("Config files are stored in MikiGui")
 
 -- Основной стандартный блок SaveManager остаётся в Settings.
 
