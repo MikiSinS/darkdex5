@@ -350,13 +350,46 @@ local function TeleportToOwnPlot()
     return true
 end
 
+local function GetEggPart(egg)
+    if not egg or not egg.Parent then
+        return nil
+    end
+
+    local Handle = egg:FindFirstChild("Handle", true)
+
+    if Handle and Handle:IsA("BasePart") then
+        return Handle
+    end
+
+    if egg:IsA("Model") then
+        if egg.PrimaryPart and egg.PrimaryPart:IsA("BasePart") then
+            return egg.PrimaryPart
+        end
+
+        for _, Part in ipairs(egg:GetDescendants()) do
+            if Part:IsA("BasePart") then
+                return Part
+            end
+        end
+
+        return nil
+    end
+
+    if egg:IsA("BasePart") then
+        return egg
+    end
+
+    return nil
+end
+
 local function CollectEgg(egg)
     if not egg or not egg.Parent then
         return
     end
 
-    local Handle = egg:FindFirstChild("Handle")
-    if not Handle or not Handle:IsA("BasePart") then
+    local Handle = GetEggPart(egg)
+
+    if not Handle then
         return
     end
 
