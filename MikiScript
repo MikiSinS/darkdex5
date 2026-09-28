@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local TweenService = game:GetService("TweenService")
 local VirtualUser = game:GetService("VirtualUser")
+local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -18,8 +19,8 @@ local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 -- ВСЕ НАСТРОЙКИ ВРЕМЕНИ
 -- =========================================
 
-local EInterval = 1
-local EHoldTime = 0.1
+local EInterval = 0
+local EHoldTime = 1
 local EggWaitAfter = 1
 local BaseTeleportTime = 1
 local HeightAboveBase = 100
@@ -115,6 +116,35 @@ local Dropdown = MainBox:AddDropdown("AutoEgg", {
         end
     end
 })
+
+local NoClipConnection = nil
+
+local function SetNoClip(State)
+    if State then
+        if NoClipConnection then
+            return
+        end
+
+        NoClipConnection = RunService.Stepped:Connect(function()
+            if not Enabled then
+                return
+            end
+
+            if Character and Character.Parent then
+                for _, Part in ipairs(Character:GetDescendants()) do
+                    if Part:IsA("BasePart") then
+                        Part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if NoClipConnection then
+            NoClipConnection:Disconnect()
+            NoClipConnection = nil
+        end
+    end
+end
 
 local function PressE()
     VirtualInputManager:SendKeyEvent(
@@ -323,14 +353,8 @@ local function CollectEgg(egg)
 
         PressE()
 
-        local StartTime = tick()
-
-        while tick() - StartTime < EInterval do
-            if not Enabled or not egg.Parent then
-                break
-            end
-
-            task.wait(0.05)
+        if EInterval > 0 then
+            task.wait(EInterval)
         end
     end
 
@@ -356,8 +380,11 @@ MainBox:AddToggle("Enable1", {
 
         if not Value then
             DisableFlight()
+            SetNoClip(false)
             return
         end
+
+        SetNoClip(true)
 
         task.spawn(function()
             while Enabled do
@@ -512,6 +539,7 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 Library:OnUnload(function()
     StopAntiAFK()
     DisableFlight()
+    SetNoClip(false)
 end)
 
 SaveManager:LoadAutoloadConfig()
