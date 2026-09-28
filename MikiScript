@@ -24,9 +24,9 @@ local EHoldTime = 0.1
 local EggWaitAfter = 1
 local BaseTeleportTime = 1
 local HeightAboveBase = 100
+local EggFlightHeight = 2
 local NoClipConnection = nil
 local EggFlightConnection = nil
-local EggFlightHeight = 2
 
 -- URL этого скрипта для Auto Execute после телепорта
 local ScriptURL = "https://raw.githubusercontent.com/MikiSinS/darkdex5/main/MikiScript"
@@ -140,15 +140,9 @@ end
 
 local function SetNoClip(State)
     if State then
-        if NoClipConnection then
-            return
-        end
-
+        if NoClipConnection then return end
         NoClipConnection = RunService.Heartbeat:Connect(function()
-            if not Enabled then
-                return
-            end
-
+            if not Enabled then return end
             if Character and Character.Parent then
                 for _, Part in ipairs(Character:GetDescendants()) do
                     if Part:IsA("BasePart") then
@@ -163,7 +157,6 @@ local function SetNoClip(State)
             NoClipConnection:Disconnect()
             NoClipConnection = nil
         end
-
         if Character and Character.Parent then
             for _, Part in ipairs(Character:GetDescendants()) do
                 if Part:IsA("BasePart") then
@@ -184,25 +177,14 @@ end
 
 local function StartEggFlight(Handle)
     StopEggFlight()
-
-    if not Handle or not Handle.Parent or not pl or not pl.Parent then
-        return false
-    end
-
+    if not Handle or not Handle.Parent or not pl or not pl.Parent then return false end
     pl.Anchored = true
-
-    local function LockToEgg()
-        if not Enabled or not Handle.Parent or not pl or not pl.Parent then
-            return
-        end
-
-        local TargetPosition = Handle.Position + Vector3.new(0, EggFlightHeight, 0)
-
+    EggFlightConnection = RunService.Heartbeat:Connect(function()
+        if not Enabled or not Handle.Parent or not pl.Parent then return end
         pl.Anchored = true
         pl.AssemblyLinearVelocity = Vector3.zero
         pl.AssemblyAngularVelocity = Vector3.zero
-        pl.CFrame = CFrame.new(TargetPosition)
-
+        pl.CFrame = CFrame.new(Handle.Position + Vector3.new(0, EggFlightHeight, 0))
         if Character and Character.Parent then
             for _, Part in ipairs(Character:GetDescendants()) do
                 if Part:IsA("BasePart") then
@@ -211,22 +193,13 @@ local function StartEggFlight(Handle)
                 end
             end
         end
-    end
-
-    LockToEgg()
-
-    EggFlightConnection = RunService.Heartbeat:Connect(LockToEgg)
-
+    end)
     return true
 end
 
 local function DisableFlight()
-    StopEggFlight()
-
     if pl and pl.Parent then
         pl.Anchored = false
-        pl.AssemblyLinearVelocity = Vector3.zero
-        pl.AssemblyAngularVelocity = Vector3.zero
     end
 end
 
@@ -384,15 +357,10 @@ local function TeleportToOwnPlot()
 end
 
 local function CollectEgg(egg)
-    if not egg or not egg.Parent then
-        return
-    end
+    if not egg or not egg.Parent then return end
 
     local Handle = egg:FindFirstChild("Handle")
-
-    if not Handle or not Handle:IsA("BasePart") then
-        return
-    end
+    if not Handle or not Handle:IsA("BasePart") then return end
 
     StartEggFlight(Handle)
 
@@ -410,7 +378,6 @@ local function CollectEgg(egg)
             if not Enabled or not egg.Parent or not Handle.Parent then
                 break
             end
-
             task.wait()
         end
     end
@@ -432,3 +399,178 @@ local function CollectEgg(egg)
     TeleportToOwnPlot()
 end
 
+MainBox:AddToggle("Enable1", {
+    Text = "Enable",
+    Default = false,
+
+    Callback = function(Value)
+        Enabled = Value
+
+        if not Value then
+            DisableFlight()
+            SetNoClip(false)
+            return
+        end
+
+        SetNoClip(true)
+
+        task.spawn(function()
+            while Enabled do
+                local RenderedEggs = workspace:FindFirstChild("RenderedEggs")
+
+                if not RenderedEggs then
+                    task.wait(0.5)
+                    continue
+                end
+
+                local HasSelectedEgg = false
+
+                for _, egg in ipairs(RenderedEggs:GetChildren()) do
+                    if SelectedEggs[egg.Name] then
+                        HasSelectedEgg = true
+                        break
+                    end
+                end
+
+                if not HasSelectedEgg then
+                    task.wait(0.5)
+                    continue
+                end
+
+                for _, egg in ipairs(RenderedEggs:GetChildren()) do
+                    if not Enabled then
+                        break
+                    end
+
+                    if SelectedEggs[egg.Name] then
+                        CollectEgg(egg)
+                    end
+                end
+
+                task.wait(0.1)
+            end
+
+            DisableFlight()
+            SetNoClip(false)
+        end)
+    end
+})
+
+LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
+    Character = NewCharacter
+    pl = NewCharacter:WaitForChild("HumanoidRootPart")
+
+    if Enabled then
+        SetNoClip(true)
+    else
+        DisableFlight()
+    end
+end)
+
+-- =========================================
+-- SETTINGS
+-- =========================================
+
+local AntiAFKBox = Tabs.Settings:AddLeftGroupbox("Anti AFK")
+
+local AntiAFKEnabled = false
+local AntiAFKConnection = nil
+
+local function StartAntiAFK()
+    if AntiAFKConnection then
+        return
+    end
+
+    AntiAFKConnection = LocalPlayer.Idled:Connect(function()
+        if not AntiAFKEnabled then
+            return
+        end
+
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+end
+
+local function StopAntiAFK()
+    if AntiAFKConnection then
+        AntiAFKConnection:Disconnect()
+        AntiAFKConnection = nil
+    end
+end
+
+AntiAFKBox:AddToggle("AntiAFK", {
+    Text = "Anti AFK",
+    Default = false,
+
+    Callback = function(Value)
+        AntiAFKEnabled = Value
+
+        if Value then
+            StartAntiAFK()
+        else
+            StopAntiAFK()
+        end
+    end
+})
+
+local AutoExecuteBox = Tabs.Settings:AddRightGroupbox("Auto Execute")
+
+AutoExecuteBox:AddToggle("AutoExecute", {
+    Text = "Auto Execute",
+    Default = false,
+
+    Callback = function(Value)
+        if not Value then
+            return
+        end
+
+        if ScriptURL == "" then
+            warn("MikiGui: ScriptURL is empty!")
+            return
+        end
+
+        local TeleportScript = [[
+            task.wait(3)
+
+            local ScriptURL = "]] .. ScriptURL .. [["
+
+            pcall(function()
+                loadstring(game:HttpGet(ScriptURL))()
+            end)
+        ]]
+
+        if queue_on_teleport then
+            pcall(function()
+                queue_on_teleport(TeleportScript)
+            end)
+        elseif queueonteleport then
+            pcall(function()
+                queueonteleport(TeleportScript)
+            end)
+        elseif syn and syn.queue_on_teleport then
+            pcall(function()
+                syn.queue_on_teleport(TeleportScript)
+            end)
+        else
+            warn("MikiGui: queue_on_teleport is not supported")
+        end
+    end
+})
+
+-- =========================================
+-- CONFIG
+-- =========================================
+
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+SaveManager:SetFolder("MikiGui")
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+Library:OnUnload(function()
+    StopAntiAFK()
+    DisableFlight()
+    SetNoClip(false)
+end)
+
+SaveManager:LoadAutoloadConfig()
