@@ -23,6 +23,7 @@ local EHoldTime = 0.1
 local EggWaitAfter = 1
 local BaseTeleportTime = 1
 local HeightAboveBase = 100
+local NoClipConnection = nil
 
 -- URL этого скрипта для Auto Execute после телепорта
 local ScriptURL = "https://raw.githubusercontent.com/MikiSinS/darkdex5/main/MikiScript"
@@ -132,6 +133,41 @@ local function PressE()
         false,
         game
     )
+end
+
+local function SetNoClip(State)
+    if State then
+        if NoClipConnection then
+            return
+        end
+
+        NoClipConnection = game:GetService("RunService").Stepped:Connect(function()
+            if not Enabled then
+                return
+            end
+
+            if Character and Character.Parent then
+                for _, Part in ipairs(Character:GetDescendants()) do
+                    if Part:IsA("BasePart") then
+                        Part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if NoClipConnection then
+            NoClipConnection:Disconnect()
+            NoClipConnection = nil
+        end
+
+        if Character and Character.Parent then
+            for _, Part in ipairs(Character:GetDescendants()) do
+                if Part:IsA("BasePart") then
+                    Part.CanCollide = true
+                end
+            end
+        end
+    end
 end
 
 local function DisableFlight()
@@ -306,6 +342,7 @@ local function CollectEgg(egg)
 
     DisableFlight()
 
+    -- Всегда держим персонажа вплотную к яйцу во время цикла
     pl.CFrame = Handle.CFrame
 
     task.wait(0.1)
@@ -317,6 +354,10 @@ local function CollectEgg(egg)
     while egg.Parent and Enabled do
         if Handle.Parent then
             pl.CFrame = Handle.CFrame
+            task.wait()
+            if Handle.Parent then
+                pl.CFrame = Handle.CFrame
+            end
         else
             break
         end
@@ -356,8 +397,11 @@ MainBox:AddToggle("Enable1", {
 
         if not Value then
             DisableFlight()
+            SetNoClip(false)
             return
         end
+
+        SetNoClip(true)
 
         task.spawn(function()
             while Enabled do
@@ -396,6 +440,7 @@ MainBox:AddToggle("Enable1", {
             end
 
             DisableFlight()
+            SetNoClip(false)
         end)
     end
 })
@@ -512,6 +557,7 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 Library:OnUnload(function()
     StopAntiAFK()
     DisableFlight()
+    SetNoClip(false)
 end)
 
 SaveManager:LoadAutoloadConfig()
