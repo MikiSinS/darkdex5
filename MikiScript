@@ -376,6 +376,7 @@ local function CollectEgg(egg)
     while egg.Parent and Enabled do
         if Handle.Parent then
             StartEggHover(Handle)
+            pl.Anchored = true
         else
             break
         end
