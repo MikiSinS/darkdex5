@@ -361,23 +361,13 @@ local function CollectEgg(egg)
         return
     end
 
-    DisableFlight()
+    SetNoClip(true)
+    StartEggHover(Handle)
+    pl.Anchored = true
 
-    pl.CFrame = Handle.CFrame
-
-    task.wait(0.1)
-
-    if not Enabled or not egg.Parent then
-        return
-    end
-
-    while egg.Parent and Enabled do
-        if Handle.Parent then
-            StartEggHover(Handle)
-            pl.Anchored = true
-        else
-            break
-        end
+    while egg.Parent and Enabled and Handle.Parent do
+        StartEggHover(Handle)
+        pl.Anchored = true
 
         PressE()
 
@@ -391,6 +381,7 @@ local function CollectEgg(egg)
 
     if not Enabled then
         DisableFlight()
+        SetNoClip(false)
         return
     end
 
@@ -398,10 +389,61 @@ local function CollectEgg(egg)
 
     if not Enabled then
         DisableFlight()
+        SetNoClip(false)
         return
     end
 
-    TeleportToOwnPlot()
+    -- Сначала гарантированно отключаем удержание у яйца.
+    pl.Anchored = false
+    pl.AssemblyLinearVelocity = Vector3.zero
+    pl.AssemblyAngularVelocity = Vector3.zero
+
+    -- Затем летим прямо на свой плот.
+    local Baseplate = GetOwnBaseplate()
+
+    if not Baseplate then
+        DisableFlight()
+        SetNoClip(false)
+        return
+    end
+
+    local TargetPosition = Baseplate.Position + Vector3.new(0, HeightAboveBase, 0)
+
+    SetNoClip(true)
+    pl.Anchored = true
+
+    local Tween = TweenService:Create(
+        pl,
+        TweenInfo.new(
+            BaseTeleportTime,
+            Enum.EasingStyle.Linear,
+            Enum.EasingDirection.Out
+        ),
+        {CFrame = CFrame.new(TargetPosition)}
+    )
+
+    Tween:Play()
+
+    while Tween.PlaybackState == Enum.PlaybackState.Playing and Enabled do
+        pl.Anchored = true
+        pl.AssemblyLinearVelocity = Vector3.zero
+        pl.AssemblyAngularVelocity = Vector3.zero
+        task.wait()
+    end
+
+    if not Enabled then
+        Tween:Cancel()
+        DisableFlight()
+        SetNoClip(false)
+        return
+    end
+
+    pl.CFrame = CFrame.new(TargetPosition)
+    pl.Anchored = false
+    pl.AssemblyLinearVelocity = Vector3.zero
+    pl.AssemblyAngularVelocity = Vector3.zero
+
+    -- Только после прибытия на базу возвращаем нормальную коллизию.
     SetNoClip(false)
 end
 
