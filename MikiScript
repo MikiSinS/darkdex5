@@ -176,21 +176,45 @@ local function SetNoClip(State)
 end
 
 local function PressE()
-    VirtualInputManager:SendKeyEvent(
-        true,
-        Enum.KeyCode.E,
-        false,
-        game
-    )
+    local Released = false
 
-    task.wait(EHoldTime)
+    local function ReleaseE()
+        if Released then
+            return
+        end
 
-    VirtualInputManager:SendKeyEvent(
-        false,
-        Enum.KeyCode.E,
-        false,
-        game
-    )
+        Released = true
+
+        pcall(function()
+            VirtualInputManager:SendKeyEvent(
+                false,
+                Enum.KeyCode.E,
+                false,
+                game
+            )
+        end)
+    end
+
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(
+            true,
+            Enum.KeyCode.E,
+            false,
+            game
+        )
+    end)
+
+    local EndTime = tick() + EHoldTime
+
+    while tick() < EndTime do
+        if not Enabled then
+            break
+        end
+
+        task.wait(0.05)
+    end
+
+    ReleaseE()
 end
 
 local function DisableFlight()
@@ -355,6 +379,19 @@ local function GetEggPart(egg)
         return nil
     end
 
+    -- Для моделей вроде Cherub сначала ищем саму точку взаимодействия E.
+    local Prompt = egg:FindFirstChildWhichIsA("ProximityPrompt", true)
+
+    if Prompt then
+        if Prompt.Parent:IsA("BasePart") then
+            return Prompt.Parent
+        end
+
+        if Prompt.Parent:IsA("Attachment") and Prompt.Parent.Parent:IsA("BasePart") then
+            return Prompt.Parent.Parent
+        end
+    end
+
     local Handle = egg:FindFirstChild("Handle", true)
 
     if Handle and Handle:IsA("BasePart") then
@@ -381,7 +418,6 @@ local function GetEggPart(egg)
 
     return nil
 end
-
 local function CollectEgg(egg)
     if not egg or not egg.Parent then
         return
