@@ -756,6 +756,76 @@ SaveManager:SetIgnoreIndexes({})
 SaveManager:SetFolder("MikiGui")
 SaveManager:BuildConfigSection(Tabs.Settings)
 
+-- ДОПОЛНИТЕЛЬНЫЙ ВИДИМЫЙ БЛОК КОНФИГОВ
+local ConfigBoxVisible = Tabs.Settings:AddLeftGroupbox("CONFIG")
+
+ConfigBoxVisible:AddInput("VisibleConfigName", {
+    Default = "",
+    Numeric = false,
+    Finished = false,
+    Text = "Config name",
+    Placeholder = "Введите имя конфига"
+})
+
+ConfigBoxVisible:AddButton("Save Config", {
+    Text = "Save Config",
+    Func = function()
+        local Name = Options.VisibleConfigName and Options.VisibleConfigName.Value or ""
+
+        if type(Name) ~= "string" then
+            Name = tostring(Name)
+        end
+
+        if Name:gsub("%s", "") == "" then
+            Library:Notify("Введите имя конфига", 2)
+            return
+        end
+
+        local Success, Error = SaveManager:Save(Name)
+
+        if Success then
+            Library:Notify("Config saved: " .. Name)
+        else
+            Library:Notify("Save error: " .. tostring(Error), 2)
+        end
+    end
+})
+
+ConfigBoxVisible:AddButton("Load Config", {
+    Text = "Load Config",
+    Func = function()
+        local Name = Options.VisibleConfigName and Options.VisibleConfigName.Value or ""
+
+        if type(Name) ~= "string" then
+            Name = tostring(Name)
+        end
+
+        if Name:gsub("%s", "") == "" then
+            Library:Notify("Введите имя конфига", 2)
+            return
+        end
+
+        local Success, Error = SaveManager:Load(Name)
+
+        if Success then
+            Library:Notify("Config loaded: " .. Name)
+        else
+            Library:Notify("Load error: " .. tostring(Error), 2)
+        end
+    end
+})
+
+ConfigBoxVisible:AddButton("Refresh Configs", {
+    Text = "Refresh Configs",
+    Func = function()
+        local List = SaveManager:RefreshConfigList()
+        Library:Notify("Configs found: " .. tostring(#List))
+    end
+})
+
+ConfigBoxVisible:AddLabel("Folder: MikiGui/settings")
+
+
 -- Отдельная вкладка конфигов.
 local ConfigBox = Tabs.Configs:AddLeftGroupbox("Configs")
 
