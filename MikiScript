@@ -144,6 +144,8 @@ local MainBox = Tabs.Egg:AddLeftGroupbox("AutoEgg")
 local SelectedEggs = {}
 local Enabled = false
 
+local SelectionOrder = {}
+
 local Dropdown = MainBox:AddDropdown("AutoEgg", {
     Values = list,
     Default = {},
@@ -151,43 +153,69 @@ local Dropdown = MainBox:AddDropdown("AutoEgg", {
     Text = "Choose Eggs",
 
     Callback = function(Value)
-        SelectedEggs = {}
-
+        local NewSelectedEggs = {}
+        
         for DisplayName, Selected in pairs(Value) do
             if Selected then
                 local EggName = EggDisplayToName[DisplayName]
 
                 if EggName then
-                    SelectedEggs[EggName] = true
+                    NewSelectedEggs[EggName] = true
                 end
             end
         end
 
-        local SelectedList = {}
-        local UnselectedList = {}
+        local NewOrder = {}
 
-        for _, DisplayName in ipairs(list) do
-            local EggName = EggDisplayToName[DisplayName]
-
-            if EggName and SelectedEggs[EggName] then
-                table.insert(SelectedList, DisplayName)
-            else
-                table.insert(UnselectedList, DisplayName)
+        for _, EggName in ipairs(SelectionOrder) do
+            if NewSelectedEggs[EggName] then
+                table.insert(NewOrder, EggName)
             end
         end
 
-        local NewList = {}
+        for DisplayName, Selected in pairs(Value) do
+            if Selected then
+                local EggName = EggDisplayToName[DisplayName]
 
-        for _, DisplayName in ipairs(SelectedList) do
-            table.insert(NewList, DisplayName)
+                if EggName and not table.find(NewOrder, EggName) then
+                    table.insert(NewOrder, EggName)
+                end
+            end
         end
 
-        for _, DisplayName in ipairs(UnselectedList) do
-            table.insert(NewList, DisplayName)
+        SelectionOrder = NewOrder
+        SelectedEggs = NewSelectedEggs
+
+        local NewList = {}
+        local Added = {}
+
+        for _, EggName in ipairs(SelectionOrder) do
+            for _, DisplayName in ipairs(list) do
+                if EggDisplayToName[DisplayName] == EggName and not Added[DisplayName] then
+                    table.insert(NewList, DisplayName)
+                    Added[DisplayName] = true
+                    break
+                end
+            end
+        end
+
+        for _, DisplayName in ipairs(list) do
+            if not Added[DisplayName] then
+                table.insert(NewList, DisplayName)
+                Added[DisplayName] = true
+            end
         end
 
         list = NewList
+
+        Dropdown:CloseDropdown()
         Dropdown:SetValues(list)
+
+        task.defer(function()
+            if not Library.Unloaded then
+                Dropdown:OpenDropdown()
+            end
+        end)
     end
 })
 
