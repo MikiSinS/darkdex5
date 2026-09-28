@@ -53,23 +53,32 @@ local function GetLuckValue(eggName, fallbackEgg)
             return nil
         end
 
-        local Luck = egg:FindFirstChild("Luck", true)
+        local EggLuck = egg:FindFirstChild("EggLuck", true)
 
-        if Luck then
-            if Luck:IsA("ValueBase") then
-                return Luck.Value
+        if EggLuck then
+            local Luck = EggLuck:FindFirstChild("Luck", true)
+
+            if Luck then
+                if Luck:IsA("ValueBase") then
+                    return Luck.Value
+                end
+
+                if Luck:IsA("TextLabel")
+                    or Luck:IsA("TextButton")
+                    or Luck:IsA("TextBox") then
+                    return Luck.Text
+                end
+
+                local Value = Luck:GetAttribute("Value")
+                if Value ~= nil then
+                    return Value
+                end
+
+                local Text = Luck:GetAttribute("Text")
+                if Text ~= nil then
+                    return Text
+                end
             end
-
-            local Value = Luck:GetAttribute("Value")
-            if Value ~= nil then
-                return Value
-            end
-        end
-
-        local AttributeLuck = egg:GetAttribute("Luck")
-
-        if AttributeLuck ~= nil then
-            return AttributeLuck
         end
 
         return nil
