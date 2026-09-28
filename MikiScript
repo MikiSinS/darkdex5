@@ -14,37 +14,6 @@ local pl = Character:WaitForChild("HumanoidRootPart")
 local repo = "https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 
--- Удаляем старые экземпляры MikiGui, чтобы старые вкладки не оставались на экране.
-pcall(function()
-    local CoreGui = game:GetService("CoreGui")
-
-    if getgenv().MikiGuiLibrary then
-        pcall(function()
-            getgenv().MikiGuiLibrary:Unload()
-        end)
-    end
-
-    for _, Gui in ipairs(CoreGui:GetChildren()) do
-        if Gui:IsA("ScreenGui") then
-            local FoundMikiGui = false
-
-            for _, Object in ipairs(Gui:GetDescendants()) do
-                if (Object:IsA("TextLabel") or Object:IsA("TextButton")) and Object.Text == "MikiGui" then
-                    FoundMikiGui = true
-                    break
-                end
-            end
-
-            if FoundMikiGui then
-                Gui:Destroy()
-            end
-        end
-    end
-
-    getgenv().MikiGuiLibrary = Library
-end)
-
-
 -- =========================================
 -- ВСЕ НАСТРОЙКИ ВРЕМЕНИ
 -- =========================================
@@ -141,60 +110,6 @@ local Tabs = {
     Egg = Window:AddTab("AutoEgg"),
     Settings = Window:AddTab("Settings"),
 }
-
--- Оставляем только две вкладки: AutoEgg и Settings.
-pcall(function()
-    while #Window.Tabs > 2 do
-        local ExtraTab = table.remove(Window.Tabs, #Window.Tabs)
-        if ExtraTab and ExtraTab.HideTab then
-            ExtraTab:HideTab()
-        end
-    end
-end)
-
-local ConfigBoxEarly = Tabs.Settings:AddLeftGroupbox("CONFIGS")
-
-ConfigBoxEarly:AddLabel("Config system")
-
-ConfigBoxEarly:AddInput("Miki_ConfigName", {
-    Default = "",
-    Numeric = false,
-    Finished = false,
-    Text = "Config name",
-    Placeholder = "Enter config name"
-})
-
-ConfigBoxEarly:AddButton("Save Config", function()
-    local Name = Options.Miki_ConfigName.Value
-    if Name and Name:gsub("%s", "") ~= "" then
-        local Success, Err = SaveManager:Save(Name)
-        if Success then
-            Library:Notify("Config saved: " .. Name)
-        else
-            Library:Notify("Save failed: " .. tostring(Err), 2)
-        end
-    else
-        Library:Notify("Enter config name", 2)
-    end
-end)
-
-ConfigBoxEarly:AddButton("Load Config", function()
-    local Name = Options.Miki_ConfigName.Value
-    if Name and Name:gsub("%s", "") ~= "" then
-        local Success, Err = SaveManager:Load(Name)
-        if Success then
-            Library:Notify("Config loaded: " .. Name)
-        else
-            Library:Notify("Load failed: " .. tostring(Err), 2)
-        end
-    else
-        Library:Notify("Enter config name", 2)
-    end
-end)
-
-ConfigBoxEarly:AddButton("Refresh Configs", function()
-    Library:Notify("Configs folder: MikiGui/settings")
-end)
 
 local MenuBox = Tabs.Settings:AddLeftGroupbox("Menu")
 
@@ -792,81 +707,9 @@ WebhookBox:AddLabel("Events: Egg caught + base teleport")
 
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
+SaveManager:SetIgnoreIndexes({"MenuKeybind"})
 SaveManager:SetFolder("MikiGui")
 SaveManager:BuildConfigSection(Tabs.Settings)
-
--- ДОПОЛНИТЕЛЬНЫЙ ВИДИМЫЙ БЛОК КОНФИГОВ
-local ConfigBoxVisible = Tabs.Settings:AddLeftGroupbox("CONFIG")
-
-ConfigBoxVisible:AddInput("VisibleConfigName", {
-    Default = "",
-    Numeric = false,
-    Finished = false,
-    Text = "Config name",
-    Placeholder = "Введите имя конфига"
-})
-
-ConfigBoxVisible:AddButton("Save Config", {
-    Text = "Save Config",
-    Func = function()
-        local Name = Options.VisibleConfigName and Options.VisibleConfigName.Value or ""
-
-        if type(Name) ~= "string" then
-            Name = tostring(Name)
-        end
-
-        if Name:gsub("%s", "") == "" then
-            Library:Notify("Введите имя конфига", 2)
-            return
-        end
-
-        local Success, Error = SaveManager:Save(Name)
-
-        if Success then
-            Library:Notify("Config saved: " .. Name)
-        else
-            Library:Notify("Save error: " .. tostring(Error), 2)
-        end
-    end
-})
-
-ConfigBoxVisible:AddButton("Load Config", {
-    Text = "Load Config",
-    Func = function()
-        local Name = Options.VisibleConfigName and Options.VisibleConfigName.Value or ""
-
-        if type(Name) ~= "string" then
-            Name = tostring(Name)
-        end
-
-        if Name:gsub("%s", "") == "" then
-            Library:Notify("Введите имя конфига", 2)
-            return
-        end
-
-        local Success, Error = SaveManager:Load(Name)
-
-        if Success then
-            Library:Notify("Config loaded: " .. Name)
-        else
-            Library:Notify("Load error: " .. tostring(Error), 2)
-        end
-    end
-})
-
-ConfigBoxVisible:AddButton("Refresh Configs", {
-    Text = "Refresh Configs",
-    Func = function()
-        local List = SaveManager:RefreshConfigList()
-        Library:Notify("Configs found: " .. tostring(#List))
-    end
-})
-
-ConfigBoxVisible:AddLabel("Folder: MikiGui/settings")
-
-
--- Основной стандартный блок SaveManager остаётся в Settings.
 
 Library:OnUnload(function()
     StopAntiAFK()
