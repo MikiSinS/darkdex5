@@ -33,11 +33,93 @@ local SaveManager = loadstring(
     game:HttpGet(repo .. "addons/SaveManager.lua")
 )()
 
+-- =========================================
+-- MENU KEYBIND
+-- =========================================
+
+local MenuKeybind = Enum.KeyCode.RightShift
+
+-- =========================================
+-- WEBHOOK
+-- =========================================
+
+local WebhookURL = ""
+local WebhookConfirmed = false
+
+local function SendWebhook(EggName)
+    if not WebhookConfirmed or WebhookURL == "" then
+        return
+    end
+
+    local Request = request
+        or http_request
+        or (syn and syn.request)
+
+    if not Request then
+        warn("MikiGui: HTTP request is not supported")
+        return
+    end
+
+    local Payload = {
+        username = "MikiGui",
+        embeds = {{
+            title = "🥚 AutoEgg",
+            description = "Яйцо поймано и игрок телепортировался на свою базу.",
+            color = 5763719,
+            fields = {
+                {
+                    name = "Egg",
+                    value = tostring(EggName),
+                    inline = true
+                },
+                {
+                    name = "Player",
+                    value = LocalPlayer.Name,
+                    inline = true
+                },
+                {
+                    name = "Status",
+                    value = "Teleported to base",
+                    inline = false
+                }
+            }
+        }}
+    }
+
+    local HttpService = game:GetService("HttpService")
+
+    pcall(function()
+        Request({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = HttpService:JSONEncode(Payload)
+        })
+    end)
+end
+
 local Window = Library:CreateWindow({
     Title = "MikiGui",
     Center = true,
     AutoShow = true,
 })
+
+-- Меню скрывается/показывается через RightShift по умолчанию.
+local MenuKeyPicker = Window:AddKeyPicker("MenuKeybind", {
+    Default = "RightShift",
+    NoUI = true,
+    Text = "Menu Keybind",
+})
+
+MenuKeyPicker:OnChanged(function()
+    local Key = Options.MenuKeybind and Options.MenuKeybind.Value
+
+    if Key then
+        MenuKeybind = Key
+    end
+end)
 
 local Tabs = {
     Egg = Window:AddTab("AutoEgg"),
@@ -425,7 +507,11 @@ local function CollectEgg(egg)
         return
     end
 
-    TeleportToOwnPlot()
+    local Teleported = TeleportToOwnPlot()
+
+    if Teleported and Enabled then
+        SendWebhook(egg.Name)
+    end
 end
 
 MainBox:AddToggle("Enable1", {
@@ -579,6 +665,46 @@ AutoExecuteBox:AddToggle("AutoExecute", {
         end
     end
 })
+
+-- =========================================
+-- WEBHOOK SETTINGS
+-- =========================================
+
+local WebhookBox = Tabs.Settings:AddLeftGroupbox("Webhook")
+
+local WebhookInput = WebhookBox:AddInput("WebhookURL", {
+    Default = "",
+    Numeric = false,
+    Finished = false,
+    Text = "Webhook URL",
+    Placeholder = "https://discord.com/api/webhooks/...",
+})
+
+WebhookBox:AddButton("ConfirmWebhook", {
+    Text = "Confirm Webhook",
+    Func = function()
+        local Value = Options.WebhookURL and Options.WebhookURL.Value or ""
+
+        if type(Value) ~= "string" then
+            Value = tostring(Value)
+        end
+
+        if Value:match("^https://discord%.com/api/webhooks/")
+            or Value:match("^https://discordapp%.com/api/webhooks/") then
+            WebhookURL = Value
+            WebhookConfirmed = true
+
+            print("MikiGui: Webhook confirmed")
+        else
+            WebhookURL = ""
+            WebhookConfirmed = false
+
+            warn("MikiGui: Invalid Discord webhook URL")
+        end
+    end
+})
+
+WebhookBox:AddLabel("Events: Egg caught + base teleport")
 
 -- =========================================
 -- CONFIG
