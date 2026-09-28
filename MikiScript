@@ -118,6 +118,35 @@ local Dropdown = MainBox:AddDropdown("AutoEgg", {
 })
 
 local NoClipConnection = nil
+local EggHoverConnection = nil
+
+local function StopEggHover()
+    if EggHoverConnection then
+        EggHoverConnection:Disconnect()
+        EggHoverConnection = nil
+    end
+end
+
+local function StartEggHover(Handle)
+    StopEggHover()
+
+    if not Handle or not Handle.Parent or not pl or not pl.Parent then
+        return
+    end
+
+    local HoverPosition = Handle.Position + Vector3.new(0, 2, 0)
+
+    EggHoverConnection = RunService.Heartbeat:Connect(function()
+        if not Enabled or not Handle.Parent or not pl.Parent then
+            return
+        end
+
+        pl.Anchored = true
+        pl.AssemblyLinearVelocity = Vector3.zero
+        pl.AssemblyAngularVelocity = Vector3.zero
+        pl.CFrame = CFrame.new(HoverPosition)
+    end)
+end
 
 local function SetNoClip(State)
     if State then
@@ -346,7 +375,7 @@ local function CollectEgg(egg)
 
     while egg.Parent and Enabled do
         if Handle.Parent then
-            pl.CFrame = Handle.CFrame
+            StartEggHover(Handle)
         else
             break
         end
@@ -380,6 +409,7 @@ MainBox:AddToggle("Enable1", {
         Enabled = Value
 
         if not Value then
+            StopEggHover()
             DisableFlight()
             SetNoClip(false)
             return
@@ -539,6 +569,7 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 
 Library:OnUnload(function()
     StopAntiAFK()
+    StopEggHover()
     DisableFlight()
     SetNoClip(false)
 end)
