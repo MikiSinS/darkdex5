@@ -111,6 +111,50 @@ local Tabs = {
     Settings = Window:AddTab("Settings"),
 }
 
+local ConfigBoxEarly = Tabs.Settings:AddLeftGroupbox("CONFIGS")
+
+ConfigBoxEarly:AddLabel("Config system")
+
+ConfigBoxEarly:AddInput("Miki_ConfigName", {
+    Default = "",
+    Numeric = false,
+    Finished = false,
+    Text = "Config name",
+    Placeholder = "Enter config name"
+})
+
+ConfigBoxEarly:AddButton("Save Config", function()
+    local Name = Options.Miki_ConfigName.Value
+    if Name and Name:gsub("%s", "") ~= "" then
+        local Success, Err = SaveManager:Save(Name)
+        if Success then
+            Library:Notify("Config saved: " .. Name)
+        else
+            Library:Notify("Save failed: " .. tostring(Err), 2)
+        end
+    else
+        Library:Notify("Enter config name", 2)
+    end
+end)
+
+ConfigBoxEarly:AddButton("Load Config", function()
+    local Name = Options.Miki_ConfigName.Value
+    if Name and Name:gsub("%s", "") ~= "" then
+        local Success, Err = SaveManager:Load(Name)
+        if Success then
+            Library:Notify("Config loaded: " .. Name)
+        else
+            Library:Notify("Load failed: " .. tostring(Err), 2)
+        end
+    else
+        Library:Notify("Enter config name", 2)
+    end
+end)
+
+ConfigBoxEarly:AddButton("Refresh Configs", function()
+    Library:Notify("Configs folder: MikiGui/settings")
+end)
+
 local MenuBox = Tabs.Settings:AddLeftGroupbox("Menu")
 
 MenuBox:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
@@ -399,26 +443,9 @@ local function SetupCollisionGroups()
     end)
 
     pcall(function()
-        PhysicsService:CollisionGroupSetCollidable(
-            PlayerCollisionGroup,
-            PlotCollisionGroup,
-            true
-        )
-    end)
-
-    pcall(function()
-        PhysicsService:CollisionGroupSetCollidable(
-            PlotCollisionGroup,
-            PlotCollisionGroup,
-            true
-        )
-    end)
-
-    pcall(function()
         for _, Group in ipairs(PhysicsService:GetCollisionGroups()) do
             if Group.name ~= PlayerCollisionGroup
                 and Group.name ~= PlotCollisionGroup then
-
                 PhysicsService:CollisionGroupSetCollidable(
                     PlayerCollisionGroup,
                     Group.name,
@@ -426,8 +453,21 @@ local function SetupCollisionGroups()
                 )
             end
         end
+
+        PhysicsService:CollisionGroupSetCollidable(
+            PlayerCollisionGroup,
+            PlotCollisionGroup,
+            true
+        )
+
+        PhysicsService:CollisionGroupSetCollidable(
+            PlotCollisionGroup,
+            PlotCollisionGroup,
+            true
+        )
     end)
 end
+
 local function SetCharacterCollision()
     if not Character or not Character.Parent then
         return
@@ -463,7 +503,6 @@ local function SetOwnPlotCollision()
                     Part.CanQuery = true
                 end
             end
-
             return
         end
     end
@@ -674,8 +713,6 @@ end)
 -- SETTINGS
 -- =========================================
 
-UpdatePlotPhysics()
-
 local AntiAFKBox = Tabs.Settings:AddLeftGroupbox("Anti AFK")
 
 local AntiAFKEnabled = false
@@ -808,54 +845,115 @@ WebhookBox:AddLabel("Events: Egg caught + base teleport")
 
 SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({"MenuKeybind"})
+SaveManager:SetIgnoreIndexes({})
 SaveManager:SetFolder("MikiGui")
 SaveManager:BuildConfigSection(Tabs.Settings)
 
--- =========================================
--- DELETE CONFIG
--- =========================================
+-- ДОПОЛНИТЕЛЬНЫЙ ВИДИМЫЙ БЛОК КОНФИГОВ
+local ConfigBoxVisible = Tabs.Settings:AddLeftGroupbox("CONFIG")
 
-local DeleteConfigBox = Tabs.Settings:AddLeftGroupbox("Config Tools")
+ConfigBoxVisible:AddInput("VisibleConfigName", {
+    Default = "",
+    Numeric = false,
+    Finished = false,
+    Text = "Config name",
+    Placeholder = "Введите имя конфига"
+})
 
-DeleteConfigBox:AddButton({
+ConfigBoxVisible:AddButton("Save Config", {
+    Text = "Save Config",
+    Func = function()
+        local Name = Options.VisibleConfigName and Options.VisibleConfigName.Value or ""
+
+        if type(Name) ~= "string" then
+            Name = tostring(Name)
+        end
+
+        if Name:gsub("%s", "") == "" then
+            Library:Notify("Введите имя конфига", 2)
+            return
+        end
+
+        local Success, Error = SaveManager:Save(Name)
+
+        if Success then
+            Library:Notify("Config saved: " .. Name)
+        else
+            Library:Notify("Save error: " .. tostring(Error), 2)
+        end
+    end
+})
+
+ConfigBoxVisible:AddButton("Load Config", {
+    Text = "Load Config",
+    Func = function()
+        local Name = Options.VisibleConfigName and Options.VisibleConfigName.Value or ""
+
+        if type(Name) ~= "string" then
+            Name = tostring(Name)
+        end
+
+        if Name:gsub("%s", "") == "" then
+            Library:Notify("Введите имя конфига", 2)
+            return
+        end
+
+        local Success, Error = SaveManager:Load(Name)
+
+        if Success then
+            Library:Notify("Config loaded: " .. Name)
+        else
+            Library:Notify("Load error: " .. tostring(Error), 2)
+        end
+    end
+})
+
+ConfigBoxVisible:AddButton("Refresh Configs", {
+    Text = "Refresh Configs",
+    Func = function()
+        local List = SaveManager:RefreshConfigList()
+        Library:Notify("Configs found: " .. tostring(#List))
+    end
+})
+
+ConfigBoxVisible:AddButton("Delete Config", {
     Text = "Delete Config",
     Func = function()
-        local Name = Options.SaveManager_ConfigList.Value
+        local Name = Options.VisibleConfigName and Options.VisibleConfigName.Value or ""
 
-        if not Name or Name == "" then
-            Library:Notify("Select a config first", 2)
+        if type(Name) ~= "string" then
+            Name = tostring(Name)
+        end
+
+        if Name:gsub("%s", "") == "" then
+            Library:Notify("Введите имя конфига", 2)
             return
         end
 
         local File = SaveManager.Folder .. "/settings/" .. Name .. ".json"
 
         if not isfile(File) then
-            Library:Notify("Config not found: " .. tostring(Name), 2)
+            Library:Notify("Config not found: " .. Name, 2)
             return
         end
 
         delfile(File)
 
         local AutoFile = SaveManager.Folder .. "/settings/autoload.txt"
-
         if isfile(AutoFile) and readfile(AutoFile) == Name then
             delfile(AutoFile)
-
-            if SaveManager.AutoloadLabel then
-                SaveManager.AutoloadLabel:SetText("Current autoload config: none")
-            end
         end
 
-        Options.SaveManager_ConfigList:SetValues(
-            SaveManager:RefreshConfigList()
-        )
-        Options.SaveManager_ConfigList:SetValue(nil)
-
-        Library:Notify("Deleted config: " .. tostring(Name))
+        Library:Notify("Config deleted: " .. Name)
     end
 })
 
+ConfigBoxVisible:AddLabel("Folder: MikiGui/settings")
+
+
+-- Основной стандартный блок SaveManager остаётся в Settings.
+
+UpdatePlotPhysics()
 
 Library:OnUnload(function()
     StopAntiAFK()
