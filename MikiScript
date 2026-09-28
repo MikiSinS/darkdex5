@@ -711,6 +711,187 @@ SaveManager:SetIgnoreIndexes({"MenuKeybind"})
 SaveManager:SetFolder("MikiGui")
 SaveManager:BuildConfigSection(Tabs.Settings)
 
+-- =========================================
+-- VISIBLE CONFIG CONTROLS
+-- =========================================
+
+local ConfigBox = Tabs.Settings:AddLeftGroupbox("Configs")
+
+ConfigBox:AddInput("MikiConfigName", {
+    Default = "",
+    Numeric = false,
+    Finished = false,
+    Text = "Config name",
+    Placeholder = "Config name"
+})
+
+ConfigBox:AddDropdown("MikiConfigList", {
+    Values = SaveManager:RefreshConfigList(),
+    Default = nil,
+    AllowNull = true,
+    Text = "Config list"
+})
+
+local function RefreshMikiConfigs()
+    if Options.MikiConfigList then
+        Options.MikiConfigList:SetValues(SaveManager:RefreshConfigList())
+        Options.MikiConfigList:SetValue(nil)
+    end
+end
+
+ConfigBox:AddButton("Save Config", {
+    Text = "Save Config",
+    Func = function()
+        local Name = tostring(Options.MikiConfigName.Value or "")
+
+        if Name:gsub("%s", "") == "" then
+            Library:Notify("Enter config name", 2)
+            return
+        end
+
+        local Success, Error = SaveManager:Save(Name)
+
+        if Success then
+            RefreshMikiConfigs()
+            Library:Notify("Saved config: " .. Name)
+        else
+            Library:Notify("Save failed: " .. tostring(Error), 2)
+        end
+    end
+})
+
+ConfigBox:AddButton("Load Config", {
+    Text = "Load Config",
+    Func = function()
+        local Name = Options.MikiConfigList.Value
+
+        if not Name then
+            Name = tostring(Options.MikiConfigName.Value or "")
+        end
+
+        if Name:gsub("%s", "") == "" then
+            Library:Notify("Select or enter config name", 2)
+            return
+        end
+
+        local Success, Error = SaveManager:Load(Name)
+
+        if Success then
+            Library:Notify("Loaded config: " .. Name)
+        else
+            Library:Notify("Load failed: " .. tostring(Error), 2)
+        end
+    end
+})
+
+ConfigBox:AddButton("Overwrite Config", {
+    Text = "Overwrite Config",
+    Func = function()
+        local Name = Options.MikiConfigList.Value
+
+        if not Name then
+            Name = tostring(Options.MikiConfigName.Value or "")
+        end
+
+        if Name:gsub("%s", "") == "" then
+            Library:Notify("Select or enter config name", 2)
+            return
+        end
+
+        local Success, Error = SaveManager:Save(Name)
+
+        if Success then
+            Library:Notify("Overwritten config: " .. Name)
+        else
+            Library:Notify("Overwrite failed: " .. tostring(Error), 2)
+        end
+    end
+})
+
+ConfigBox:AddButton("Refresh Configs", {
+    Text = "Refresh Configs",
+    Func = function()
+        RefreshMikiConfigs()
+        Library:Notify("Config list refreshed")
+    end
+})
+
+ConfigBox:AddButton("Delete Config", {
+    Text = "Delete Config",
+    Func = function()
+        local Name = Options.MikiConfigList.Value
+
+        if not Name then
+            Name = tostring(Options.MikiConfigName.Value or "")
+        end
+
+        if Name:gsub("%s", "") == "" then
+            Library:Notify("Select or enter config name", 2)
+            return
+        end
+
+        local File = SaveManager.Folder .. "/settings/" .. Name .. ".json"
+
+        if isfile(File) then
+            delfile(File)
+
+            if isfile(SaveManager.Folder .. "/settings/autoload.txt") then
+                local AutoName = readfile(SaveManager.Folder .. "/settings/autoload.txt")
+                if AutoName == Name then
+                    delfile(SaveManager.Folder .. "/settings/autoload.txt")
+                end
+            end
+
+            RefreshMikiConfigs()
+            Library:Notify("Deleted config: " .. Name)
+        else
+            Library:Notify("Config not found: " .. Name, 2)
+        end
+    end
+})
+
+ConfigBox:AddButton("Set Auto Load", {
+    Text = "Set Auto Load",
+    Func = function()
+        local Name = Options.MikiConfigList.Value
+
+        if not Name then
+            Name = tostring(Options.MikiConfigName.Value or "")
+        end
+
+        if Name:gsub("%s", "") == "" then
+            Library:Notify("Select or enter config name", 2)
+            return
+        end
+
+        writefile(SaveManager.Folder .. "/settings/autoload.txt", Name)
+
+        if SaveManager.AutoloadLabel then
+            SaveManager.AutoloadLabel:SetText("Current autoload config: " .. Name)
+        end
+
+        Library:Notify("Auto Load: " .. Name)
+    end
+})
+
+ConfigBox:AddButton("Clear Auto Load", {
+    Text = "Clear Auto Load",
+    Func = function()
+        local File = SaveManager.Folder .. "/settings/autoload.txt"
+
+        if isfile(File) then
+            delfile(File)
+        end
+
+        if SaveManager.AutoloadLabel then
+            SaveManager.AutoloadLabel:SetText("Current autoload config: none")
+        end
+
+        Library:Notify("Auto Load cleared")
+    end
+})
+
+
 Library:OnUnload(function()
     StopAntiAFK()
     DisableFlight()
