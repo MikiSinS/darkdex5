@@ -712,8 +712,47 @@ SaveManager:SetIgnoreIndexes({})
 SaveManager:SetFolder("MikiGui")
 SaveManager:BuildConfigSection(Tabs.Settings)
 
--- Отдельная вкладка конфигов, чтобы меню Config всегда было доступно.
-SaveManager:BuildConfigSection(Tabs.Configs)
+-- Отдельная вкладка конфигов.
+local ConfigBox = Tabs.Configs:AddLeftGroupbox("Configs")
+
+ConfigBox:AddInput("ConfigName", {
+    Default = "",
+    Numeric = false,
+    Finished = false,
+    Text = "Config name",
+    Placeholder = "Config name"
+})
+
+ConfigBox:AddButton("SaveConfig", {
+    Text = "Save Config",
+    Func = function()
+        local Name = Options.ConfigName and Options.ConfigName.Value or ""
+        if Name ~= "" then
+            SaveManager:Save(Name)
+        end
+    end
+})
+
+ConfigBox:AddButton("LoadConfig", {
+    Text = "Load Config",
+    Func = function()
+        local Name = Options.ConfigName and Options.ConfigName.Value or ""
+        if Name ~= "" then
+            SaveManager:Load(Name)
+        end
+    end
+})
+
+ConfigBox:AddButton("RefreshConfigs", {
+    Text = "Refresh Configs",
+    Func = function()
+        SaveManager:RefreshConfigList()
+    end
+})
+
+ConfigBox:AddLabel("Config files are stored in MikiGui")
+
+-- Основной стандартный блок SaveManager остаётся в Settings.
 
 Library:OnUnload(function()
     StopAntiAFK()
