@@ -19,7 +19,7 @@ local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 -- =========================================
 
 local EInterval = 1
-local EHoldTime = 1
+local EHoldTime = 0.1
 local EggWaitAfter = 1
 local BaseTeleportTime = 1
 local HeightAboveBase = 100
@@ -33,73 +33,6 @@ local SaveManager = loadstring(
     game:HttpGet(repo .. "addons/SaveManager.lua")
 )()
 
--- =========================================
--- MENU KEYBIND
--- =========================================
-
-local MenuKeybind = Enum.KeyCode.RightShift
-
--- =========================================
--- WEBHOOK
--- =========================================
-
-local WebhookURL = ""
-local WebhookConfirmed = false
-
-local function SendWebhook(EggName)
-    if not WebhookConfirmed or WebhookURL == "" then
-        return
-    end
-
-    local Request = request
-        or http_request
-        or (syn and syn.request)
-
-    if not Request then
-        warn("MikiGui: HTTP request is not supported")
-        return
-    end
-
-    local Payload = {
-        username = "MikiGui",
-        embeds = {{
-            title = "🥚 AutoEgg",
-            description = "Яйцо поймано и игрок телепортировался на свою базу.",
-            color = 5763719,
-            fields = {
-                {
-                    name = "Egg",
-                    value = tostring(EggName),
-                    inline = true
-                },
-                {
-                    name = "Player",
-                    value = LocalPlayer.Name,
-                    inline = true
-                },
-                {
-                    name = "Status",
-                    value = "Teleported to base",
-                    inline = false
-                }
-            }
-        }}
-    }
-
-    local HttpService = game:GetService("HttpService")
-
-    pcall(function()
-        Request({
-            Url = WebhookURL,
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Body = HttpService:JSONEncode(Payload)
-        })
-    end)
-end
-
 local Window = Library:CreateWindow({
     Title = "MikiGui",
     Center = true,
@@ -111,118 +44,31 @@ local Tabs = {
     Settings = Window:AddTab("Settings"),
 }
 
-local ConfigBoxEarly = Tabs.Settings:AddLeftGroupbox("CONFIGS")
-
-ConfigBoxEarly:AddLabel("Config system")
-
-ConfigBoxEarly:AddInput("Miki_ConfigName", {
-    Default = "",
-    Numeric = false,
-    Finished = false,
-    Text = "Config name",
-    Placeholder = "Enter config name"
-})
-
-ConfigBoxEarly:AddButton("Save Config", function()
-    local Name = Options.Miki_ConfigName.Value
-    if Name and Name:gsub("%s", "") ~= "" then
-        local Success, Err = SaveManager:Save(Name)
-        if Success then
-            Library:Notify("Config saved: " .. Name)
-        else
-            Library:Notify("Save failed: " .. tostring(Err), 2)
-        end
-    else
-        Library:Notify("Enter config name", 2)
-    end
-end)
-
-ConfigBoxEarly:AddButton("Load Config", function()
-    local Name = Options.Miki_ConfigName.Value
-    if Name and Name:gsub("%s", "") ~= "" then
-        local Success, Err = SaveManager:Load(Name)
-        if Success then
-            Library:Notify("Config loaded: " .. Name)
-        else
-            Library:Notify("Load failed: " .. tostring(Err), 2)
-        end
-    else
-        Library:Notify("Enter config name", 2)
-    end
-end)
-
-ConfigBoxEarly:AddButton("Refresh Configs", function()
-    Library:Notify("Configs folder: MikiGui/settings")
-end)
-
-local MenuBox = Tabs.Settings:AddLeftGroupbox("Menu")
-
-MenuBox:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {
-    Default = "RightShift",
-    NoUI = true,
-    Text = "Menu keybind"
-})
-
-Library.ToggleKeybind = Options.MenuKeybind
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local eggfolder = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Eggs")
 
-local function GetLuckValue(eggName, fallbackEgg)
-    local function ReadLuck(egg)
-        if not egg then
-            return nil
-        end
-
-        local EggLuck = egg:FindFirstChild("EggLuck", true)
-
-        if EggLuck then
-            local Luck = EggLuck:FindFirstChild("Luck", true)
-
-            if Luck then
-                if Luck:IsA("ValueBase") then
-                    return Luck.Value
-                end
-
-                if Luck:IsA("TextLabel")
-                    or Luck:IsA("TextButton")
-                    or Luck:IsA("TextBox") then
-                    return Luck.Text
-                end
-
-                local Value = Luck:GetAttribute("Value")
-                if Value ~= nil then
-                    return Value
-                end
-
-                local Text = Luck:GetAttribute("Text")
-                if Text ~= nil then
-                    return Text
-                end
-            end
-        end
-
-        return nil
+local function GetLuckValue(egg)
+    if not egg then
+        return "?"
     end
 
-    local RenderedEggs = workspace:FindFirstChild("RenderedEggs")
+    local Luck = egg:FindFirstChild("Luck", true)
 
-    if RenderedEggs and eggName then
-        for _, RenderedEgg in ipairs(RenderedEggs:GetChildren()) do
-            if RenderedEgg.Name == eggName then
-                local Luck = ReadLuck(RenderedEgg)
+    if Luck then
+        if Luck:IsA("ValueBase") then
+            return tostring(Luck.Value)
+        end
 
-                if Luck ~= nil then
-                    return tostring(Luck)
-                end
-            end
+        local AttributeLuck = Luck:GetAttribute("Value")
+        if AttributeLuck ~= nil then
+            return tostring(AttributeLuck)
         end
     end
 
-    local Luck = ReadLuck(fallbackEgg)
+    local AttributeLuck = egg:GetAttribute("Luck")
 
-    if Luck ~= nil then
-        return tostring(Luck)
+    if AttributeLuck ~= nil then
+        return tostring(AttributeLuck)
     end
 
     return "?"
@@ -232,27 +78,11 @@ local list = {}
 local EggDisplayToName = {}
 local usr = {}
 
-local RenderedEggs = workspace:FindFirstChild("RenderedEggs")
-
-if RenderedEggs then
-    for _, renderedEgg in ipairs(RenderedEggs:GetChildren()) do
-        if not usr[renderedEgg.Name] then
-            usr[renderedEgg.Name] = true
-
-            local Luck = GetLuckValue(renderedEgg)
-            local DisplayName = renderedEgg.Name .. " | Luck: " .. Luck
-
-            table.insert(list, DisplayName)
-            EggDisplayToName[DisplayName] = renderedEgg.Name
-        end
-    end
-end
-
 for _, egg1 in ipairs(eggfolder:GetChildren()) do
     if not usr[egg1.Name] then
         usr[egg1.Name] = true
 
-        local Luck = GetLuckValue(egg1.Name, egg1)
+        local Luck = GetLuckValue(egg1)
         local DisplayName = egg1.Name .. " | Luck: " .. Luck
 
         table.insert(list, DisplayName)
@@ -283,38 +113,6 @@ local Dropdown = MainBox:AddDropdown("AutoEgg", {
                 end
             end
         end
-
-        local SelectedList = {}
-        local OtherList = {}
-
-        for _, DisplayName in ipairs(list) do
-            local EggName = EggDisplayToName[DisplayName]
-
-            if EggName and SelectedEggs[EggName] then
-                table.insert(SelectedList, DisplayName)
-            else
-                table.insert(OtherList, DisplayName)
-            end
-        end
-
-        local SortedList = {}
-
-        for _, DisplayName in ipairs(SelectedList) do
-            table.insert(SortedList, DisplayName)
-        end
-
-        for _, DisplayName in ipairs(OtherList) do
-            table.insert(SortedList, DisplayName)
-        end
-
-        list = SortedList
-
-        -- Меняем именно порядок пунктов раскрытого списка.
-        Dropdown.Values = SortedList
-
-        -- Перерисовываем список штатным методом Linoria.
-        Dropdown.BuildDropdownList()
-        Dropdown.Display()
     end
 })
 
@@ -424,101 +222,10 @@ local function GetOwnBaseplate()
     return nil
 end
 
--- =========================================
--- PLOT PHYSICS / NOCLIP
--- =========================================
-
-local PhysicsService = game:GetService("PhysicsService")
-
-local PlayerCollisionGroup = "MikiPlayer"
-local PlotCollisionGroup = "MikiOwnPlot"
-
-local function SetupCollisionGroups()
-    pcall(function()
-        PhysicsService:RegisterCollisionGroup(PlayerCollisionGroup)
-    end)
-
-    pcall(function()
-        PhysicsService:RegisterCollisionGroup(PlotCollisionGroup)
-    end)
-
-    pcall(function()
-        for _, Group in ipairs(PhysicsService:GetCollisionGroups()) do
-            if Group.name ~= PlayerCollisionGroup
-                and Group.name ~= PlotCollisionGroup then
-                PhysicsService:CollisionGroupSetCollidable(
-                    PlayerCollisionGroup,
-                    Group.name,
-                    false
-                )
-            end
-        end
-
-        PhysicsService:CollisionGroupSetCollidable(
-            PlayerCollisionGroup,
-            PlotCollisionGroup,
-            true
-        )
-
-        PhysicsService:CollisionGroupSetCollidable(
-            PlotCollisionGroup,
-            PlotCollisionGroup,
-            true
-        )
-    end)
-end
-
-local function SetCharacterCollision()
-    if not Character or not Character.Parent then
-        return
-    end
-
-    SetupCollisionGroups()
-
-    for _, Part in ipairs(Character:GetDescendants()) do
-        if Part:IsA("BasePart") then
-            Part.CollisionGroup = PlayerCollisionGroup
-        end
-    end
-end
-
-local function SetOwnPlotCollision()
-    SetupCollisionGroups()
-
-    local Plots = workspace:FindFirstChild("Plots")
-    if not Plots then
-        return
-    end
-
-    for _, Plot in ipairs(Plots:GetChildren()) do
-        local Data = Plot:FindFirstChild("Data")
-        local Owner = Data and Data:FindFirstChild("Owner")
-
-        if Owner and IsOurPlot(Owner) then
-            for _, Part in ipairs(Plot:GetDescendants()) do
-                if Part:IsA("BasePart") then
-                    Part.CollisionGroup = PlotCollisionGroup
-                    Part.CanCollide = true
-                    Part.CanTouch = true
-                    Part.CanQuery = true
-                end
-            end
-            return
-        end
-    end
-end
-
-local function UpdatePlotPhysics()
-    SetCharacterCollision()
-    SetOwnPlotCollision()
-end
-
 local function TeleportToOwnPlot()
     if not pl or not pl.Parent then
         return false
     end
-
-    UpdatePlotPhysics()
 
     local Baseplate = GetOwnBaseplate()
 
@@ -637,11 +344,7 @@ local function CollectEgg(egg)
         return
     end
 
-    local Teleported = TeleportToOwnPlot()
-
-    if Teleported and Enabled then
-        SendWebhook(egg.Name)
-    end
+    TeleportToOwnPlot()
 end
 
 MainBox:AddToggle("Enable1", {
@@ -700,9 +403,6 @@ MainBox:AddToggle("Enable1", {
 LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
     Character = NewCharacter
     pl = NewCharacter:WaitForChild("HumanoidRootPart")
-
-    task.wait(0.25)
-    UpdatePlotPhysics()
 
     if not Enabled then
         DisableFlight()
@@ -800,46 +500,6 @@ AutoExecuteBox:AddToggle("AutoExecute", {
 })
 
 -- =========================================
--- WEBHOOK SETTINGS
--- =========================================
-
-local WebhookBox = Tabs.Settings:AddLeftGroupbox("Webhook")
-
-local WebhookInput = WebhookBox:AddInput("WebhookURL", {
-    Default = "",
-    Numeric = false,
-    Finished = false,
-    Text = "Webhook URL",
-    Placeholder = "https://discord.com/api/webhooks/...",
-})
-
-WebhookBox:AddButton("ConfirmWebhook", {
-    Text = "Confirm Webhook",
-    Func = function()
-        local Value = Options.WebhookURL and Options.WebhookURL.Value or ""
-
-        if type(Value) ~= "string" then
-            Value = tostring(Value)
-        end
-
-        if Value:match("^https://discord%.com/api/webhooks/")
-            or Value:match("^https://discordapp%.com/api/webhooks/") then
-            WebhookURL = Value
-            WebhookConfirmed = true
-
-            print("MikiGui: Webhook confirmed")
-        else
-            WebhookURL = ""
-            WebhookConfirmed = false
-
-            warn("MikiGui: Invalid Discord webhook URL")
-        end
-    end
-})
-
-WebhookBox:AddLabel("Events: Egg caught + base teleport")
-
--- =========================================
 -- CONFIG
 -- =========================================
 
@@ -848,172 +508,6 @@ SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({})
 SaveManager:SetFolder("MikiGui")
 SaveManager:BuildConfigSection(Tabs.Settings)
-
--- ДОПОЛНИТЕЛЬНЫЙ ВИДИМЫЙ БЛОК КОНФИГОВ
-local ConfigBoxVisible = Tabs.Settings:AddLeftGroupbox("CONFIG")
-
-ConfigBoxVisible:AddInput("VisibleConfigName", {
-    Default = "",
-    Numeric = false,
-    Finished = false,
-    Text = "Config name",
-    Placeholder = "Введите имя конфига"
-})
-
-ConfigBoxVisible:AddButton("Save Config", {
-    Text = "Save Config",
-    Func = function()
-        local Name = Options.VisibleConfigName and Options.VisibleConfigName.Value or ""
-
-        if type(Name) ~= "string" then
-            Name = tostring(Name)
-        end
-
-        if Name:gsub("%s", "") == "" then
-            Library:Notify("Введите имя конфига", 2)
-            return
-        end
-
-        local Success, Error = SaveManager:Save(Name)
-
-        if Success then
-            Library:Notify("Config saved: " .. Name)
-        else
-            Library:Notify("Save error: " .. tostring(Error), 2)
-        end
-    end
-})
-
-ConfigBoxVisible:AddButton("Load Config", {
-    Text = "Load Config",
-    Func = function()
-        local Name = Options.VisibleConfigName and Options.VisibleConfigName.Value or ""
-
-        if type(Name) ~= "string" then
-            Name = tostring(Name)
-        end
-
-        if Name:gsub("%s", "") == "" then
-            Library:Notify("Введите имя конфига", 2)
-            return
-        end
-
-        local Success, Error = SaveManager:Load(Name)
-
-        if Success then
-            Library:Notify("Config loaded: " .. Name)
-        else
-            Library:Notify("Load error: " .. tostring(Error), 2)
-        end
-    end
-})
-
-ConfigBoxVisible:AddButton("Refresh Configs", {
-    Text = "Refresh Configs",
-    Func = function()
-        local List = SaveManager:RefreshConfigList()
-        Library:Notify("Configs found: " .. tostring(#List))
-    end
-})
-
-ConfigBoxVisible:AddButton("Delete Config", {
-    Text = "Delete Config",
-    Func = function()
-        local Name = Options.VisibleConfigName and Options.VisibleConfigName.Value or ""
-
-        if type(Name) ~= "string" then
-            Name = tostring(Name)
-        end
-
-        if Name:gsub("%s", "") == "" then
-            Library:Notify("Введите имя конфига", 2)
-            return
-        end
-
-        local File = SaveManager.Folder .. "/settings/" .. Name .. ".json"
-
-        if not isfile(File) then
-            Library:Notify("Config not found: " .. Name, 2)
-            return
-        end
-
-        delfile(File)
-
-        local AutoFile = SaveManager.Folder .. "/settings/autoload.txt"
-        if isfile(AutoFile) and readfile(AutoFile) == Name then
-            delfile(AutoFile)
-        end
-
-        Library:Notify("Config deleted: " .. Name)
-    end
-})
-
-ConfigBoxVisible:AddDropdown("Miki_AutoloadConfig", {
-    Values = SaveManager:RefreshConfigList(),
-    Default = nil,
-    AllowNull = true,
-    Text = "Autoload config"
-})
-
-ConfigBoxVisible:AddButton("Set Autoload", {
-    Text = "Set Autoload",
-    Func = function()
-        local Name = Options.Miki_AutoloadConfig and Options.Miki_AutoloadConfig.Value
-
-        if not Name or tostring(Name):gsub("%s", "") == "" then
-            Library:Notify("Выбери конфиг для автозагрузки", 2)
-            return
-        end
-
-        writefile(
-            SaveManager.Folder .. "/settings/autoload.txt",
-            tostring(Name)
-        )
-
-        Library:Notify("Autoload set: " .. tostring(Name))
-    end
-})
-
-ConfigBoxVisible:AddButton("Clear Autoload", {
-    Text = "Clear Autoload",
-    Func = function()
-        local AutoFile = SaveManager.Folder .. "/settings/autoload.txt"
-
-        if isfile(AutoFile) then
-            delfile(AutoFile)
-        end
-
-        if Options.Miki_AutoloadConfig then
-            Options.Miki_AutoloadConfig:SetValue(nil)
-        end
-
-        Library:Notify("Autoload cleared")
-    end
-})
-
-ConfigBoxVisible:AddButton("Refresh Autoload List", {
-    Text = "Refresh Autoload List",
-    Func = function()
-        if Options.Miki_AutoloadConfig then
-            Options.Miki_AutoloadConfig:SetValues(SaveManager:RefreshConfigList())
-        end
-
-        Library:Notify("Autoload list refreshed")
-    end
-})
-
-local AutoFile = SaveManager.Folder .. "/settings/autoload.txt"
-if isfile(AutoFile) and Options.Miki_AutoloadConfig then
-    local AutoName = readfile(AutoFile)
-    Options.Miki_AutoloadConfig:SetValue(AutoName)
-end
-
-ConfigBoxVisible:AddLabel("Folder: MikiGui/settings")
-
-
--- Основной стандартный блок SaveManager остаётся в Settings.
-
-UpdatePlotPhysics()
 
 Library:OnUnload(function()
     StopAntiAFK()
