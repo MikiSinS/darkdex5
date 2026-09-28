@@ -162,6 +162,32 @@ local Dropdown = MainBox:AddDropdown("AutoEgg", {
                 end
             end
         end
+
+        local SelectedList = {}
+        local UnselectedList = {}
+
+        for _, DisplayName in ipairs(list) do
+            local EggName = EggDisplayToName[DisplayName]
+
+            if EggName and SelectedEggs[EggName] then
+                table.insert(SelectedList, DisplayName)
+            else
+                table.insert(UnselectedList, DisplayName)
+            end
+        end
+
+        local NewList = {}
+
+        for _, DisplayName in ipairs(SelectedList) do
+            table.insert(NewList, DisplayName)
+        end
+
+        for _, DisplayName in ipairs(UnselectedList) do
+            table.insert(NewList, DisplayName)
+        end
+
+        list = NewList
+        Dropdown:SetValues(list)
     end
 })
 
