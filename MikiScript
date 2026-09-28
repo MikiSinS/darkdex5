@@ -153,10 +153,7 @@ local function SetNoClip(State)
             end
         end)
     else
-        if NoClipConnection then
-            NoClipConnection:Disconnect()
-            NoClipConnection = nil
-        end
+        if NoClipConnection then NoClipConnection:Disconnect(); NoClipConnection = nil end
         if Character and Character.Parent then
             for _, Part in ipairs(Character:GetDescendants()) do
                 if Part:IsA("BasePart") then
@@ -185,21 +182,16 @@ local function StartEggFlight(Handle)
         pl.AssemblyLinearVelocity = Vector3.zero
         pl.AssemblyAngularVelocity = Vector3.zero
         pl.CFrame = CFrame.new(Handle.Position + Vector3.new(0, EggFlightHeight, 0))
-        if Character and Character.Parent then
-            for _, Part in ipairs(Character:GetDescendants()) do
-                if Part:IsA("BasePart") then
-                    Part.CanCollide = false
-                    Part.CanTouch = false
-                end
-            end
-        end
     end)
     return true
 end
 
 local function DisableFlight()
+    StopEggFlight()
     if pl and pl.Parent then
         pl.Anchored = false
+        pl.AssemblyLinearVelocity = Vector3.zero
+        pl.AssemblyAngularVelocity = Vector3.zero
     end
 end
 
@@ -364,21 +356,13 @@ local function CollectEgg(egg)
 
     StartEggFlight(Handle)
 
-    if not Enabled or not egg.Parent or not Handle.Parent then
-        DisableFlight()
-        return
-    end
-
     while egg.Parent and Enabled and Handle.Parent do
         local CycleStart = tick()
-
         PressE()
 
         while tick() - CycleStart < EInterval do
-            if not Enabled or not egg.Parent or not Handle.Parent then
-                break
-            end
-            task.wait()
+            if not Enabled or not egg.Parent or not Handle.Parent then break end
+            task.wait(0.05)
         end
     end
 
@@ -451,7 +435,6 @@ MainBox:AddToggle("Enable1", {
             end
 
             DisableFlight()
-            SetNoClip(false)
         end)
     end
 })
