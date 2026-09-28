@@ -380,10 +380,101 @@ local function GetOwnBaseplate()
     return nil
 end
 
+-- =========================================
+-- PLOT PHYSICS / NOCLIP
+-- =========================================
+
+local PhysicsService = game:GetService("PhysicsService")
+
+local PlayerCollisionGroup = "MikiPlayer"
+local PlotCollisionGroup = "MikiOwnPlot"
+
+local function SetupCollisionGroups()
+    pcall(function()
+        PhysicsService:RegisterCollisionGroup(PlayerCollisionGroup)
+    end)
+
+    pcall(function()
+        PhysicsService:RegisterCollisionGroup(PlotCollisionGroup)
+    end)
+
+    pcall(function()
+        PhysicsService:CollisionGroupSetCollidable(
+            PlayerCollisionGroup,
+            "Default",
+            false
+        )
+    end)
+
+    pcall(function()
+        PhysicsService:CollisionGroupSetCollidable(
+            PlayerCollisionGroup,
+            PlotCollisionGroup,
+            true
+        )
+    end)
+
+    pcall(function()
+        PhysicsService:CollisionGroupSetCollidable(
+            PlotCollisionGroup,
+            PlotCollisionGroup,
+            true
+        )
+    end)
+end
+
+local function SetCharacterCollision()
+    if not Character or not Character.Parent then
+        return
+    end
+
+    SetupCollisionGroups()
+
+    for _, Part in ipairs(Character:GetDescendants()) do
+        if Part:IsA("BasePart") then
+            Part.CollisionGroup = PlayerCollisionGroup
+        end
+    end
+end
+
+local function SetOwnPlotCollision()
+    SetupCollisionGroups()
+
+    local Plots = workspace:FindFirstChild("Plots")
+    if not Plots then
+        return
+    end
+
+    for _, Plot in ipairs(Plots:GetChildren()) do
+        local Data = Plot:FindFirstChild("Data")
+        local Owner = Data and Data:FindFirstChild("Owner")
+
+        if Owner and IsOurPlot(Owner) then
+            for _, Part in ipairs(Plot:GetDescendants()) do
+                if Part:IsA("BasePart") then
+                    Part.CollisionGroup = PlotCollisionGroup
+                    Part.CanCollide = true
+                    Part.CanTouch = true
+                    Part.CanQuery = true
+                end
+            end
+
+            return
+        end
+    end
+end
+
+local function UpdatePlotPhysics()
+    SetCharacterCollision()
+    SetOwnPlotCollision()
+end
+
 local function TeleportToOwnPlot()
     if not pl or not pl.Parent then
         return false
     end
+
+    UpdatePlotPhysics()
 
     local Baseplate = GetOwnBaseplate()
 
@@ -566,6 +657,9 @@ LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
     Character = NewCharacter
     pl = NewCharacter:WaitForChild("HumanoidRootPart")
 
+    task.wait(0.25)
+    UpdatePlotPhysics()
+
     if not Enabled then
         DisableFlight()
     end
@@ -574,6 +668,8 @@ end)
 -- =========================================
 -- SETTINGS
 -- =========================================
+
+UpdatePlotPhysics()
 
 local AntiAFKBox = Tabs.Settings:AddLeftGroupbox("Anti AFK")
 
@@ -712,7 +808,7 @@ SaveManager:SetFolder("MikiGui")
 SaveManager:BuildConfigSection(Tabs.Settings)
 
 -- =========================================
--- VISIBLE CONFIG CONTROLS
+-- CONFIG CONTROLS
 -- =========================================
 
 local ConfigBox = Tabs.Settings:AddLeftGroupbox("Configs")
@@ -727,7 +823,6 @@ ConfigBox:AddInput("MikiConfigName", {
 
 ConfigBox:AddDropdown("MikiConfigList", {
     Values = SaveManager:RefreshConfigList(),
-    Default = nil,
     AllowNull = true,
     Text = "Config list"
 })
@@ -739,157 +834,141 @@ local function RefreshMikiConfigs()
     end
 end
 
-ConfigBox:AddButton("Save Config", {
-    Text = "Save Config",
-    Func = function()
-        local Name = tostring(Options.MikiConfigName.Value or "")
+local function GetMikiConfigName()
+    local Selected = Options.MikiConfigList and Options.MikiConfigList.Value
 
-        if Name:gsub("%s", "") == "" then
-            Library:Notify("Enter config name", 2)
-            return
-        end
-
-        local Success, Error = SaveManager:Save(Name)
-
-        if Success then
-            RefreshMikiConfigs()
-            Library:Notify("Saved config: " .. Name)
-        else
-            Library:Notify("Save failed: " .. tostring(Error), 2)
-        end
+    if Selected and Selected ~= "" then
+        return Selected
     end
-})
 
-ConfigBox:AddButton("Load Config", {
-    Text = "Load Config",
-    Func = function()
-        local Name = Options.MikiConfigList.Value
+    return tostring(Options.MikiConfigName.Value or "")
+end
 
-        if not Name then
-            Name = tostring(Options.MikiConfigName.Value or "")
-        end
+ConfigBox:AddButton("Save Config", function()
+    local Name = tostring(Options.MikiConfigName.Value or "")
 
-        if Name:gsub("%s", "") == "" then
-            Library:Notify("Select or enter config name", 2)
-            return
-        end
-
-        local Success, Error = SaveManager:Load(Name)
-
-        if Success then
-            Library:Notify("Loaded config: " .. Name)
-        else
-            Library:Notify("Load failed: " .. tostring(Error), 2)
-        end
+    if Name:gsub("%s", "") == "" then
+        Library:Notify("Enter config name", 2)
+        return
     end
-})
 
-ConfigBox:AddButton("Overwrite Config", {
-    Text = "Overwrite Config",
-    Func = function()
-        local Name = Options.MikiConfigList.Value
+    local Success, Error = SaveManager:Save(Name)
 
-        if not Name then
-            Name = tostring(Options.MikiConfigName.Value or "")
-        end
-
-        if Name:gsub("%s", "") == "" then
-            Library:Notify("Select or enter config name", 2)
-            return
-        end
-
-        local Success, Error = SaveManager:Save(Name)
-
-        if Success then
-            Library:Notify("Overwritten config: " .. Name)
-        else
-            Library:Notify("Overwrite failed: " .. tostring(Error), 2)
-        end
-    end
-})
-
-ConfigBox:AddButton("Refresh Configs", {
-    Text = "Refresh Configs",
-    Func = function()
+    if Success then
         RefreshMikiConfigs()
-        Library:Notify("Config list refreshed")
+        Library:Notify("Saved config: " .. Name)
+    else
+        Library:Notify("Save failed: " .. tostring(Error), 2)
     end
-})
+end)
 
-ConfigBox:AddButton("Delete Config", {
-    Text = "Delete Config",
-    Func = function()
-        local Name = Options.MikiConfigList.Value
+ConfigBox:AddButton("Load Config", function()
+    local Name = GetMikiConfigName()
 
-        if not Name then
-            Name = tostring(Options.MikiConfigName.Value or "")
-        end
-
-        if Name:gsub("%s", "") == "" then
-            Library:Notify("Select or enter config name", 2)
-            return
-        end
-
-        local File = SaveManager.Folder .. "/settings/" .. Name .. ".json"
-
-        if isfile(File) then
-            delfile(File)
-
-            if isfile(SaveManager.Folder .. "/settings/autoload.txt") then
-                local AutoName = readfile(SaveManager.Folder .. "/settings/autoload.txt")
-                if AutoName == Name then
-                    delfile(SaveManager.Folder .. "/settings/autoload.txt")
-                end
-            end
-
-            RefreshMikiConfigs()
-            Library:Notify("Deleted config: " .. Name)
-        else
-            Library:Notify("Config not found: " .. Name, 2)
-        end
+    if Name:gsub("%s", "") == "" then
+        Library:Notify("Select or enter config name", 2)
+        return
     end
-})
 
-ConfigBox:AddButton("Set Auto Load", {
-    Text = "Set Auto Load",
-    Func = function()
-        local Name = Options.MikiConfigList.Value
+    local Success, Error = SaveManager:Load(Name)
 
-        if not Name then
-            Name = tostring(Options.MikiConfigName.Value or "")
-        end
-
-        if Name:gsub("%s", "") == "" then
-            Library:Notify("Select or enter config name", 2)
-            return
-        end
-
-        writefile(SaveManager.Folder .. "/settings/autoload.txt", Name)
-
-        if SaveManager.AutoloadLabel then
-            SaveManager.AutoloadLabel:SetText("Current autoload config: " .. Name)
-        end
-
-        Library:Notify("Auto Load: " .. Name)
+    if Success then
+        Library:Notify("Loaded config: " .. Name)
+    else
+        Library:Notify("Load failed: " .. tostring(Error), 2)
     end
-})
+end)
 
-ConfigBox:AddButton("Clear Auto Load", {
-    Text = "Clear Auto Load",
-    Func = function()
-        local File = SaveManager.Folder .. "/settings/autoload.txt"
+ConfigBox:AddButton("Overwrite Config", function()
+    local Name = GetMikiConfigName()
 
-        if isfile(File) then
-            delfile(File)
-        end
+    if Name:gsub("%s", "") == "" then
+        Library:Notify("Select or enter config name", 2)
+        return
+    end
+
+    local Success, Error = SaveManager:Save(Name)
+
+    if Success then
+        Library:Notify("Overwritten config: " .. Name)
+    else
+        Library:Notify("Overwrite failed: " .. tostring(Error), 2)
+    end
+end)
+
+ConfigBox:AddButton("Refresh Configs", function()
+    RefreshMikiConfigs()
+    Library:Notify("Config list refreshed")
+end)
+
+ConfigBox:AddButton("Delete Config", function()
+    local Name = GetMikiConfigName()
+
+    if Name:gsub("%s", "") == "" then
+        Library:Notify("Select or enter config name", 2)
+        return
+    end
+
+    local File = SaveManager.Folder .. "/settings/" .. Name .. ".json"
+
+    if not isfile(File) then
+        Library:Notify("Config not found: " .. Name, 2)
+        return
+    end
+
+    delfile(File)
+
+    local AutoFile = SaveManager.Folder .. "/settings/autoload.txt"
+
+    if isfile(AutoFile) and readfile(AutoFile) == Name then
+        delfile(AutoFile)
 
         if SaveManager.AutoloadLabel then
             SaveManager.AutoloadLabel:SetText("Current autoload config: none")
         end
-
-        Library:Notify("Auto Load cleared")
     end
-})
+
+    RefreshMikiConfigs()
+    Library:Notify("Deleted config: " .. Name)
+end)
+
+ConfigBox:AddButton("Set Auto Load", function()
+    local Name = GetMikiConfigName()
+
+    if Name:gsub("%s", "") == "" then
+        Library:Notify("Select or enter config name", 2)
+        return
+    end
+
+    local File = SaveManager.Folder .. "/settings/" .. Name .. ".json"
+
+    if not isfile(File) then
+        Library:Notify("Config not found: " .. Name, 2)
+        return
+    end
+
+    writefile(SaveManager.Folder .. "/settings/autoload.txt", Name)
+
+    if SaveManager.AutoloadLabel then
+        SaveManager.AutoloadLabel:SetText("Current autoload config: " .. Name)
+    end
+
+    Library:Notify("Auto Load: " .. Name)
+end)
+
+ConfigBox:AddButton("Clear Auto Load", function()
+    local File = SaveManager.Folder .. "/settings/autoload.txt"
+
+    if isfile(File) then
+        delfile(File)
+    end
+
+    if SaveManager.AutoloadLabel then
+        SaveManager.AutoloadLabel:SetText("Current autoload config: none")
+    end
+
+    Library:Notify("Auto Load cleared")
+end)
 
 
 Library:OnUnload(function()
