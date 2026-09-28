@@ -353,8 +353,9 @@ local function CollectEgg(egg)
 
         PressE()
 
-        if EInterval > 0 then
-            task.wait(EInterval)
+        local Remaining = EInterval - EHoldTime
+        if Remaining > 0 then
+            task.wait(Remaining)
         end
     end
 
