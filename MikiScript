@@ -26,7 +26,7 @@ local BaseTeleportTime = 1
 local HeightAboveBase = 100
 local NoClipConnection = nil
 local EggFlightConnection = nil
-local EggFlightHeight = 3
+local EggFlightHeight = 2
 
 -- URL этого скрипта для Auto Execute после телепорта
 local ScriptURL = "https://raw.githubusercontent.com/MikiSinS/darkdex5/main/MikiScript"
@@ -144,7 +144,7 @@ local function SetNoClip(State)
             return
         end
 
-        NoClipConnection = game:GetService("RunService").Stepped:Connect(function()
+        NoClipConnection = RunService.Heartbeat:Connect(function()
             if not Enabled then
                 return
             end
@@ -153,6 +153,7 @@ local function SetNoClip(State)
                 for _, Part in ipairs(Character:GetDescendants()) do
                     if Part:IsA("BasePart") then
                         Part.CanCollide = false
+                        Part.CanTouch = false
                     end
                 end
             end
@@ -167,6 +168,7 @@ local function SetNoClip(State)
             for _, Part in ipairs(Character:GetDescendants()) do
                 if Part:IsA("BasePart") then
                     Part.CanCollide = true
+                    Part.CanTouch = true
                 end
             end
         end
@@ -196,16 +198,24 @@ local function StartEggFlight(Handle)
 
         local TargetPosition = Handle.Position + Vector3.new(0, EggFlightHeight, 0)
 
+        pl.Anchored = true
         pl.AssemblyLinearVelocity = Vector3.zero
         pl.AssemblyAngularVelocity = Vector3.zero
         pl.CFrame = CFrame.new(TargetPosition)
+
+        if Character and Character.Parent then
+            for _, Part in ipairs(Character:GetDescendants()) do
+                if Part:IsA("BasePart") then
+                    Part.CanCollide = false
+                    Part.CanTouch = false
+                end
+            end
+        end
     end
 
     LockToEgg()
 
-    EggFlightConnection = RunService.Heartbeat:Connect(function()
-        LockToEgg()
-    end)
+    EggFlightConnection = RunService.Heartbeat:Connect(LockToEgg)
 
     return true
 end
@@ -386,218 +396,39 @@ local function CollectEgg(egg)
 
     StartEggFlight(Handle)
 
-    task.wait(0.1)
-
     if not Enabled or not egg.Parent or not Handle.Parent then
         DisableFlight()
         return
     end
 
-    while egg.Parent and Enabled do
-        if not Handle.Parent then
-            break
-        end
-
-        local StartTime = tick()
+    while egg.Parent and Enabled and Handle.Parent do
+        local CycleStart = tick()
 
         PressE()
 
-        local Remaining = EInterval - (tick() - StartTime)
+        while tick() - CycleStart < EInterval do
+            if not Enabled or not egg.Parent or not Handle.Parent then
+                break
+            end
 
-        if Remaining > 0 then
-            task.wait(Remaining)
-        end
-
-        while false do
-            break
+            task.wait()
         end
     end
 
     StopEggFlight()
 
     if not Enabled then
+        DisableFlight()
         return
     end
 
     task.wait(EggWaitAfter)
 
     if not Enabled then
+        DisableFlight()
         return
     end
 
     TeleportToOwnPlot()
 end
 
-MainBox:AddToggle("Enable1", {
-    Text = "Enable",
-    Default = false,
-
-    Callback = function(Value)
-        Enabled = Value
-
-        if not Value then
-            DisableFlight()
-            SetNoClip(false)
-            return
-        end
-
-        SetNoClip(true)
-
-        task.spawn(function()
-            while Enabled do
-                local RenderedEggs = workspace:FindFirstChild("RenderedEggs")
-
-                if not RenderedEggs then
-                    task.wait(0.5)
-                    continue
-                end
-
-                local HasSelectedEgg = false
-
-                for _, egg in ipairs(RenderedEggs:GetChildren()) do
-                    if SelectedEggs[egg.Name] then
-                        HasSelectedEgg = true
-                        break
-                    end
-                end
-
-                if not HasSelectedEgg then
-                    task.wait(0.5)
-                    continue
-                end
-
-                for _, egg in ipairs(RenderedEggs:GetChildren()) do
-                    if not Enabled then
-                        break
-                    end
-
-                    if SelectedEggs[egg.Name] then
-                        CollectEgg(egg)
-                    end
-                end
-
-                task.wait(0.1)
-            end
-
-            DisableFlight()
-            SetNoClip(false)
-        end)
-    end
-})
-
-LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
-    Character = NewCharacter
-    pl = NewCharacter:WaitForChild("HumanoidRootPart")
-
-    if not Enabled then
-        DisableFlight()
-    end
-end)
-
--- =========================================
--- SETTINGS
--- =========================================
-
-local AntiAFKBox = Tabs.Settings:AddLeftGroupbox("Anti AFK")
-
-local AntiAFKEnabled = false
-local AntiAFKConnection = nil
-
-local function StartAntiAFK()
-    if AntiAFKConnection then
-        return
-    end
-
-    AntiAFKConnection = LocalPlayer.Idled:Connect(function()
-        if not AntiAFKEnabled then
-            return
-        end
-
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton2(Vector2.new())
-    end)
-end
-
-local function StopAntiAFK()
-    if AntiAFKConnection then
-        AntiAFKConnection:Disconnect()
-        AntiAFKConnection = nil
-    end
-end
-
-AntiAFKBox:AddToggle("AntiAFK", {
-    Text = "Anti AFK",
-    Default = false,
-
-    Callback = function(Value)
-        AntiAFKEnabled = Value
-
-        if Value then
-            StartAntiAFK()
-        else
-            StopAntiAFK()
-        end
-    end
-})
-
-local AutoExecuteBox = Tabs.Settings:AddRightGroupbox("Auto Execute")
-
-AutoExecuteBox:AddToggle("AutoExecute", {
-    Text = "Auto Execute",
-    Default = false,
-
-    Callback = function(Value)
-        if not Value then
-            return
-        end
-
-        if ScriptURL == "" then
-            warn("MikiGui: ScriptURL is empty!")
-            return
-        end
-
-        local TeleportScript = [[
-            task.wait(3)
-
-            local ScriptURL = "]] .. ScriptURL .. [["
-
-            pcall(function()
-                loadstring(game:HttpGet(ScriptURL))()
-            end)
-        ]]
-
-        if queue_on_teleport then
-            pcall(function()
-                queue_on_teleport(TeleportScript)
-            end)
-        elseif queueonteleport then
-            pcall(function()
-                queueonteleport(TeleportScript)
-            end)
-        elseif syn and syn.queue_on_teleport then
-            pcall(function()
-                syn.queue_on_teleport(TeleportScript)
-            end)
-        else
-            warn("MikiGui: queue_on_teleport is not supported")
-        end
-    end
-})
-
--- =========================================
--- CONFIG
--- =========================================
-
-SaveManager:SetLibrary(Library)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-SaveManager:SetFolder("MikiGui")
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Library:OnUnload(function()
-    StopAntiAFK()
-    DisableFlight()
-    SetNoClip(false)
-end)
-
-SaveManager:LoadAutoloadConfig()
