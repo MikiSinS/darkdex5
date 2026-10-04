@@ -135,9 +135,9 @@ local function GetRoot()
     return Character:FindFirstChild("HumanoidRootPart")
 end
 
--- Позиция орба: Center внутри модели (например 811 > Center), иначе сама модель/парта.
+-- Позиция орба: парта Orb внутри модели (LuckyOrb... > Orb), иначе Center, иначе сама модель/парта.
 local function GetOrbPosition(Object)
-    local Center = Object:FindFirstChild("Center", true)
+    local Center = Object:FindFirstChild("Orb", true) or Object:FindFirstChild("Center", true)
 
     if Center and Center:IsA("BasePart") then
         return Center.Position
@@ -167,15 +167,15 @@ local function StartOrbs()
     task.spawn(function()
         while IsActive() do
             local Root = GetRoot()
-            local Things = workspace:FindFirstChild("__THINGS")
-            local Orbs = Things and Things:FindFirstChild("Orbs")
+            local Debris = workspace:FindFirstChild("__DEBRIS")
+            local Orbs = Debris and Debris:FindFirstChild("HatchWarOrbs")
             local Children = Orbs and Orbs:GetChildren() or {}
 
             if DebugOrbs and not Reported then
                 Reported = true
 
                 if not Orbs then
-                    Library:Notify("Orbs: папка workspace.__THINGS.Orbs не найдена", 6)
+                    Library:Notify("Orbs: папка workspace.__DEBRIS.HatchWarOrbs не найдена", 6)
                 elseif #Children == 0 then
                     Library:Notify("Orbs: папка найдена, но внутри пусто", 6)
                 else
@@ -201,7 +201,7 @@ local function StartOrbs()
                         break
                     end
 
-                    local Position = GetOrbPosition(Object)
+                    local Position = Object.Parent and GetOrbPosition(Object)
 
                     if Position then
                         -- каждый кадр удерживаем персонажа в точке орба
@@ -232,7 +232,7 @@ local OrbBox = Tabs.Orbs:AddLeftGroupbox("Orbs")
 OrbBox:AddToggle("OrbToggle", {
     Text = "Auto touch Orbs",
     Default = false,
-    Tooltip = "Подлетает к каждому орбу в workspace.__THINGS.Orbs и возвращается назад",
+    Tooltip = "Подлетает к каждому орбу в workspace.__DEBRIS.HatchWarOrbs и возвращается назад",
 
     Callback = function(Value)
         Orb.Enabled = Value
