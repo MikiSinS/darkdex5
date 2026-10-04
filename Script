@@ -15,3 +15,104 @@ local Window = Library:CreateWindow({
 local Tabs = {
     Main = Window:AddTab("Main")
 }
+
+-- Fly ---------------------------------------------------------------
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+local Fly = {
+    Enabled = false,
+    Speed = 50, -- studs/sec
+}
+local flyConn, bodyVel, bodyGyro
+
+local function getCharacter()
+    local char = LocalPlayer.Character
+    if not char then return end
+    return char:FindFirstChild("HumanoidRootPart"), char:FindFirstChildOfClass("Humanoid")
+end
+
+local function stopFly()
+    if flyConn then flyConn:Disconnect(); flyConn = nil end
+    if bodyVel then bodyVel:Destroy(); bodyVel = nil end
+    if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
+    local _, hum = getCharacter()
+    if hum then hum.PlatformStand = false end
+end
+
+local function startFly()
+    stopFly()
+    local root, hum = getCharacter()
+    if not root or not hum then return end
+
+    hum.PlatformStand = true
+
+    bodyVel = Instance.new("BodyVelocity")
+    bodyVel.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+    bodyVel.Velocity = Vector3.zero
+    bodyVel.Parent = root
+
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+    bodyGyro.P = 9e4
+    bodyGyro.CFrame = root.CFrame
+    bodyGyro.Parent = root
+
+    flyConn = RunService.RenderStepped:Connect(function()
+        local cam = workspace.CurrentCamera
+        local dir = Vector3.zero
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.yAxis end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.yAxis end
+
+        bodyVel.Velocity = dir.Magnitude > 0 and dir.Unit * Fly.Speed or Vector3.zero
+        bodyGyro.CFrame = cam.CFrame
+    end)
+end
+
+-- после респауна продолжаем лететь, если Fly включён
+local charConn = LocalPlayer.CharacterAdded:Connect(function()
+    if Fly.Enabled then
+        task.wait(0.5)
+        if Fly.Enabled then startFly() end
+    end
+end)
+
+Library:OnUnload(function()
+    Fly.Enabled = false
+    stopFly()
+    charConn:Disconnect()
+end)
+
+local FlyBox = Tabs.Main:AddLeftGroupbox("Fly")
+
+FlyBox:AddToggle("FlyToggle", {
+    Text = "Fly",
+    Default = false,
+    Tooltip = "WASD - движение, Space - вверх, LeftCtrl - вниз",
+    Callback = function(value)
+        Fly.Enabled = value
+        if value then startFly() else stopFly() end
+    end,
+})
+
+FlyBox:AddInput("FlySpeed", {
+    Text = "Speed",
+    Default = tostring(Fly.Speed),
+    Numeric = true,
+    Finished = true, -- применяется по Enter
+    Placeholder = "50",
+    Tooltip = "Введи число и нажми Enter",
+    Callback = function(value)
+        local n = tonumber(value)
+        if n then
+            Fly.Speed = math.clamp(n, 0, 1000)
+        end
+    end,
+})
