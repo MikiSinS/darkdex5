@@ -118,6 +118,7 @@ SpeedBox:AddInput("SpeedValue", {
 
 local OrbStayTime = 0.2   -- сколько секунд стоим у каждого орба
 local OrbPassDelay = 0.2  -- пауза между полными проходами
+local DebugOrbs = true   -- показывать в окне, что скрипт нашёл (поставь false, когда заработает)
 
 local Orb = {
     Enabled = false,
@@ -161,17 +162,41 @@ local function StartOrbs()
         return Orb.Enabled and Orb.Token == MyToken
     end
 
+    local Reported = false
+
     task.spawn(function()
         while IsActive() do
             local Root = GetRoot()
             local Things = workspace:FindFirstChild("__THINGS")
             local Orbs = Things and Things:FindFirstChild("Orbs")
+            local Children = Orbs and Orbs:GetChildren() or {}
 
-            if Root and Orbs and #Orbs:GetChildren() > 0 then
+            if DebugOrbs and not Reported then
+                Reported = true
+
+                if not Orbs then
+                    Library:Notify("Orbs: папка workspace.__THINGS.Orbs не найдена", 6)
+                elseif #Children == 0 then
+                    Library:Notify("Orbs: папка найдена, но внутри пусто", 6)
+                else
+                    Library:Notify(
+                        string.format(
+                            "Orbs: найдено %d | первый: %s (%s) | pos: %s",
+                            #Children,
+                            Children[1].Name,
+                            Children[1].ClassName,
+                            tostring(GetOrbPosition(Children[1]))
+                        ),
+                        8
+                    )
+                end
+            end
+
+            if Root and #Children > 0 then
+                local Character = Root.Parent
                 local Origin = Root.CFrame
-                Root.Anchored = true
 
-                for _, Object in ipairs(Orbs:GetChildren()) do
+                for _, Object in ipairs(Children) do
                     if not IsActive() or not Root.Parent then
                         break
                     end
@@ -179,15 +204,20 @@ local function StartOrbs()
                     local Position = GetOrbPosition(Object)
 
                     if Position then
-                        Root.CFrame = CFrame.new(Position)
-                        task.wait(OrbStayTime)
+                        -- каждый кадр удерживаем персонажа в точке орба
+                        local Until = tick() + OrbStayTime
+
+                        while tick() < Until and IsActive() and Root.Parent do
+                            Character:PivotTo(CFrame.new(Position))
+                            Root.AssemblyLinearVelocity = Vector3.zero
+                            task.wait()
+                        end
                     end
                 end
 
-                -- возвращаем на место и отпускаем
+                -- возвращаем на прежнее место
                 if Root.Parent then
-                    Root.CFrame = Origin
-                    Root.Anchored = false
+                    Character:PivotTo(Origin)
                     Root.AssemblyLinearVelocity = Vector3.zero
                 end
             end
