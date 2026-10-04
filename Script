@@ -1,118 +1,517 @@
 if Library then
     Library:Unload()
 end
+
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
+local VirtualUser = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local pl = Character:WaitForChild("HumanoidRootPart")
+
 local repo = "https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/"
 local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 
+-- =========================================
+-- ВСЕ НАСТРОЙКИ ВРЕМЕНИ
+-- =========================================
+
+local EInterval = 1
+local EHoldTime = 1
+local EggWaitAfter = 1
+local BaseTeleportTime = 1
+local HeightAboveBase = 100
+
+-- URL этого скрипта для Auto Execute после телепорта
+local ScriptURL = "https://raw.githubusercontent.com/MikiSinS/darkdex5/main/Script"
+
+-- =========================================
+
+local SaveManager = loadstring(
+    game:HttpGet(repo .. "addons/SaveManager.lua")
+)()
+
 local Window = Library:CreateWindow({
-    Title = "DarkDex5",
+    Title = "MikiGui",
     Center = true,
     AutoShow = true,
-    TabPadding = 8,
-    MenuFadeTime = 0.2
 })
 
 local Tabs = {
-    Main = Window:AddTab("Main")
+    Egg = Window:AddTab("AutoEgg"),
+    Settings = Window:AddTab("Settings"),
 }
 
--- Fly ---------------------------------------------------------------
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local eggfolder = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Eggs")
 
-local Fly = {
-    Enabled = false,
-    Speed = 50, -- studs/sec
-}
-local flyConn, bodyVel, bodyGyro
+local function GetLuckValue(egg)
+    if not egg then
+        return "?"
+    end
 
-local function getCharacter()
-    local char = LocalPlayer.Character
-    if not char then return end
-    return char:FindFirstChild("HumanoidRootPart"), char:FindFirstChildOfClass("Humanoid")
+    local Luck = egg:FindFirstChild("Luck", true)
+
+    if Luck then
+        if Luck:IsA("ValueBase") then
+            return tostring(Luck.Value)
+        end
+
+        local AttributeLuck = Luck:GetAttribute("Value")
+        if AttributeLuck ~= nil then
+            return tostring(AttributeLuck)
+        end
+    end
+
+    local AttributeLuck = egg:GetAttribute("Luck")
+
+    if AttributeLuck ~= nil then
+        return tostring(AttributeLuck)
+    end
+
+    return "?"
 end
 
-local function stopFly()
-    if flyConn then flyConn:Disconnect(); flyConn = nil end
-    if bodyVel then bodyVel:Destroy(); bodyVel = nil end
-    if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
-    local _, hum = getCharacter()
-    if hum then hum.PlatformStand = false end
+local list = {}
+local EggDisplayToName = {}
+local usr = {}
+
+for _, egg1 in ipairs(eggfolder:GetChildren()) do
+    if not usr[egg1.Name] then
+        usr[egg1.Name] = true
+
+        local Luck = GetLuckValue(egg1)
+        local DisplayName = egg1.Name .. " | Luck: " .. Luck
+
+        table.insert(list, DisplayName)
+        EggDisplayToName[DisplayName] = egg1.Name
+    end
 end
 
-local function startFly()
-    stopFly()
-    local root, hum = getCharacter()
-    if not root or not hum then return end
+local MainBox = Tabs.Egg:AddLeftGroupbox("AutoEgg")
 
-    hum.PlatformStand = true
+local SelectedEggs = {}
+local Enabled = false
 
-    bodyVel = Instance.new("BodyVelocity")
-    bodyVel.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-    bodyVel.Velocity = Vector3.zero
-    bodyVel.Parent = root
+local Dropdown = MainBox:AddDropdown("AutoEgg", {
+    Values = list,
+    Default = {},
+    Multi = true,
+    Text = "Choose Eggs",
 
-    bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
-    bodyGyro.P = 9e4
-    bodyGyro.CFrame = root.CFrame
-    bodyGyro.Parent = root
+    Callback = function(Value)
+        SelectedEggs = {}
 
-    flyConn = RunService.RenderStepped:Connect(function()
-        local cam = workspace.CurrentCamera
-        local dir = Vector3.zero
+        for DisplayName, Selected in pairs(Value) do
+            if Selected then
+                local EggName = EggDisplayToName[DisplayName]
 
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.yAxis end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.yAxis end
+                if EggName then
+                    SelectedEggs[EggName] = true
+                end
+            end
+        end
+    end
+})
 
-        bodyVel.Velocity = dir.Magnitude > 0 and dir.Unit * Fly.Speed or Vector3.zero
-        bodyGyro.CFrame = cam.CFrame
-    end)
+local function PressE()
+    VirtualInputManager:SendKeyEvent(
+        true,
+        Enum.KeyCode.E,
+        false,
+        game
+    )
+
+    task.wait(EHoldTime)
+
+    VirtualInputManager:SendKeyEvent(
+        false,
+        Enum.KeyCode.E,
+        false,
+        game
+    )
 end
 
--- после респауна продолжаем лететь, если Fly включён
-local charConn = LocalPlayer.CharacterAdded:Connect(function()
-    if Fly.Enabled then
-        task.wait(0.5)
-        if Fly.Enabled then startFly() end
+local function DisableFlight()
+    if pl and pl.Parent then
+        pl.Anchored = false
+    end
+end
+
+local function SmoothTeleport(targetCFrame, duration)
+    if not pl or not pl.Parent then
+        return false
+    end
+
+    pl.Anchored = true
+
+    local Tween = TweenService:Create(
+        pl,
+        TweenInfo.new(
+            duration,
+            Enum.EasingStyle.Linear,
+            Enum.EasingDirection.Out
+        ),
+        {
+            CFrame = targetCFrame
+        }
+    )
+
+    Tween:Play()
+    Tween.Completed:Wait()
+
+    return true
+end
+
+local function GetOwnerValue(Owner)
+    if Owner:IsA("ObjectValue") then
+        return Owner.Value
+    end
+
+    if Owner:IsA("StringValue") then
+        return Owner.Value
+    end
+
+    return nil
+end
+
+local function IsOurPlot(Owner)
+    local OwnerValue = GetOwnerValue(Owner)
+
+    if not OwnerValue then
+        return false
+    end
+
+    if Owner:IsA("ObjectValue") then
+        return OwnerValue == LocalPlayer
+    end
+
+    if Owner:IsA("StringValue") then
+        return OwnerValue == LocalPlayer.Name
+            or OwnerValue == tostring(LocalPlayer.UserId)
+    end
+
+    return false
+end
+
+local function GetOwnBaseplate()
+    local Plots = workspace:FindFirstChild("Plots")
+
+    if not Plots then
+        return nil
+    end
+
+    for _, plot in ipairs(Plots:GetChildren()) do
+        local Data = plot:FindFirstChild("Data")
+
+        if Data then
+            local Owner = Data:FindFirstChild("Owner")
+
+            if Owner and IsOurPlot(Owner) then
+                local Baseplate = plot:FindFirstChild("Baseplate", true)
+
+                if Baseplate and Baseplate:IsA("BasePart") then
+                    return Baseplate
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+local function TeleportToOwnPlot()
+    if not pl or not pl.Parent then
+        return false
+    end
+
+    local Baseplate = GetOwnBaseplate()
+
+    if not Baseplate then
+        return false
+    end
+
+    local BasePosition = Baseplate.Position
+    local CurrentPosition = pl.Position
+
+    local BaseY = BasePosition.Y
+    local CurrentY = CurrentPosition.Y
+
+    if BaseY < CurrentY then
+        pl.Anchored = true
+
+        pl.CFrame = CFrame.new(
+            CurrentPosition.X,
+            BaseY + HeightAboveBase,
+            CurrentPosition.Z
+        )
+
+        if not Enabled then
+            DisableFlight()
+            return false
+        end
+
+        local FlyPosition = Vector3.new(
+            BasePosition.X,
+            BaseY + HeightAboveBase,
+            BasePosition.Z
+        )
+
+        SmoothTeleport(
+            CFrame.new(FlyPosition),
+            BaseTeleportTime
+        )
+
+        if not Enabled then
+            DisableFlight()
+            return false
+        end
+
+        DisableFlight()
+    else
+        local FlyPosition = Vector3.new(
+            BasePosition.X,
+            CurrentY,
+            BasePosition.Z
+        )
+
+        SmoothTeleport(
+            CFrame.new(FlyPosition),
+            BaseTeleportTime
+        )
+
+        if not Enabled then
+            DisableFlight()
+            return false
+        end
+
+        DisableFlight()
+    end
+
+    return true
+end
+
+local function CollectEgg(egg)
+    if not egg or not egg.Parent then
+        return
+    end
+
+    local Handle = egg:FindFirstChild("Handle")
+
+    if not Handle or not Handle:IsA("BasePart") then
+        return
+    end
+
+    DisableFlight()
+
+    pl.CFrame = Handle.CFrame
+
+    task.wait(0.1)
+
+    if not Enabled or not egg.Parent then
+        return
+    end
+
+    while egg.Parent and Enabled do
+        if Handle.Parent then
+            pl.CFrame = Handle.CFrame
+        else
+            break
+        end
+
+        PressE()
+
+        local StartTime = tick()
+
+        while tick() - StartTime < EInterval do
+            if not Enabled or not egg.Parent then
+                break
+            end
+
+            task.wait(0.05)
+        end
+    end
+
+    if not Enabled then
+        return
+    end
+
+    task.wait(EggWaitAfter)
+
+    if not Enabled then
+        return
+    end
+
+    TeleportToOwnPlot()
+end
+
+MainBox:AddToggle("Enable1", {
+    Text = "Enable",
+    Default = false,
+
+    Callback = function(Value)
+        Enabled = Value
+
+        if not Value then
+            DisableFlight()
+            return
+        end
+
+        task.spawn(function()
+            while Enabled do
+                local RenderedEggs = workspace:FindFirstChild("RenderedEggs")
+
+                if not RenderedEggs then
+                    task.wait(0.5)
+                    continue
+                end
+
+                local HasSelectedEgg = false
+
+                for _, egg in ipairs(RenderedEggs:GetChildren()) do
+                    if SelectedEggs[egg.Name] then
+                        HasSelectedEgg = true
+                        break
+                    end
+                end
+
+                if not HasSelectedEgg then
+                    task.wait(0.5)
+                    continue
+                end
+
+                for _, egg in ipairs(RenderedEggs:GetChildren()) do
+                    if not Enabled then
+                        break
+                    end
+
+                    if SelectedEggs[egg.Name] then
+                        CollectEgg(egg)
+                    end
+                end
+
+                task.wait(0.1)
+            end
+
+            DisableFlight()
+        end)
+    end
+})
+
+LocalPlayer.CharacterAdded:Connect(function(NewCharacter)
+    Character = NewCharacter
+    pl = NewCharacter:WaitForChild("HumanoidRootPart")
+
+    if not Enabled then
+        DisableFlight()
     end
 end)
 
+-- =========================================
+-- SETTINGS
+-- =========================================
+
+local AntiAFKBox = Tabs.Settings:AddLeftGroupbox("Anti AFK")
+
+local AntiAFKEnabled = false
+local AntiAFKConnection = nil
+
+local function StartAntiAFK()
+    if AntiAFKConnection then
+        return
+    end
+
+    AntiAFKConnection = LocalPlayer.Idled:Connect(function()
+        if not AntiAFKEnabled then
+            return
+        end
+
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+end
+
+local function StopAntiAFK()
+    if AntiAFKConnection then
+        AntiAFKConnection:Disconnect()
+        AntiAFKConnection = nil
+    end
+end
+
+AntiAFKBox:AddToggle("AntiAFK", {
+    Text = "Anti AFK",
+    Default = false,
+
+    Callback = function(Value)
+        AntiAFKEnabled = Value
+
+        if Value then
+            StartAntiAFK()
+        else
+            StopAntiAFK()
+        end
+    end
+})
+
+local AutoExecuteBox = Tabs.Settings:AddRightGroupbox("Auto Execute")
+
+AutoExecuteBox:AddToggle("AutoExecute", {
+    Text = "Auto Execute",
+    Default = false,
+
+    Callback = function(Value)
+        if not Value then
+            return
+        end
+
+        if ScriptURL == "" then
+            warn("MikiGui: ScriptURL is empty!")
+            return
+        end
+
+        local TeleportScript = [[
+            task.wait(3)
+
+            local ScriptURL = "]] .. ScriptURL .. [["
+
+            pcall(function()
+                loadstring(game:HttpGet(ScriptURL))()
+            end)
+        ]]
+
+        if queue_on_teleport then
+            pcall(function()
+                queue_on_teleport(TeleportScript)
+            end)
+        elseif queueonteleport then
+            pcall(function()
+                queueonteleport(TeleportScript)
+            end)
+        elseif syn and syn.queue_on_teleport then
+            pcall(function()
+                syn.queue_on_teleport(TeleportScript)
+            end)
+        else
+            warn("MikiGui: queue_on_teleport is not supported")
+        end
+    end
+})
+
+-- =========================================
+-- CONFIG
+-- =========================================
+
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+SaveManager:SetFolder("MikiGui")
+SaveManager:BuildConfigSection(Tabs.Settings)
+
 Library:OnUnload(function()
-    Fly.Enabled = false
-    stopFly()
-    charConn:Disconnect()
+    StopAntiAFK()
+    DisableFlight()
 end)
 
-local FlyBox = Tabs.Main:AddLeftGroupbox("Fly")
-
-FlyBox:AddToggle("FlyToggle", {
-    Text = "Fly",
-    Default = false,
-    Tooltip = "WASD - движение, Space - вверх, LeftCtrl - вниз",
-    Callback = function(value)
-        Fly.Enabled = value
-        if value then startFly() else stopFly() end
-    end,
-})
-
-FlyBox:AddInput("FlySpeed", {
-    Text = "Speed",
-    Default = tostring(Fly.Speed),
-    Numeric = true,
-    Finished = true, -- применяется по Enter
-    Placeholder = "50",
-    Tooltip = "Введи число и нажми Enter",
-    Callback = function(value)
-        local n = tonumber(value)
-        if n then
-            Fly.Speed = math.clamp(n, 0, 1000)
-        end
-    end,
-})
+SaveManager:LoadAutoloadConfig()
