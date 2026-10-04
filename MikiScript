@@ -24,6 +24,7 @@ local EHoldTime = 2
 local EggWaitAfter = 1
 local BaseTeleportTime = 1
 local HeightAboveBase = 100
+local DebugPrompt = true -- показывать в окне данные о подсказке яйца (поставь false, когда заработает)
 
 -- URL этого скрипта для Auto Execute после телепорта
 local ScriptURL = "https://raw.githubusercontent.com/MikiSinS/darkdex5/main/MikiScript"
@@ -188,6 +189,31 @@ local function PressE(Prompt)
     local HoldTime = EHoldTime
     if Prompt then
         HoldTime = math.max(EHoldTime, Prompt.HoldDuration + 0.3)
+
+        -- Подсказка может не срабатывать из-за дистанции или "линии видимости".
+        pcall(function()
+            Prompt.RequiresLineOfSight = false
+            Prompt.MaxActivationDistance = math.max(Prompt.MaxActivationDistance, 25)
+        end)
+    end
+
+    if DebugPrompt then
+        pcall(function()
+            local Info = "Prompt NOT FOUND"
+
+            if Prompt then
+                Info = string.format(
+                    "Prompt: %s | key=%s | hold=%.2f | enabled=%s | fire=%s",
+                    Prompt.Parent and Prompt.Parent.Name or "?",
+                    Prompt.KeyboardKeyCode.Name,
+                    Prompt.HoldDuration,
+                    tostring(Prompt.Enabled),
+                    tostring(fireproximityprompt ~= nil)
+                )
+            end
+
+            Library:Notify(Info, 4)
+        end)
     end
 
     local function ReleaseE()
@@ -237,6 +263,13 @@ local function PressE(Prompt)
         end
 
         task.wait(0.05)
+    end
+
+    -- Если яйцо всё ещё на месте (зажатие не сработало) - пробуем функцию экзекьютора.
+    if Enabled and Prompt and Prompt.Parent and fireproximityprompt then
+        pcall(function()
+            fireproximityprompt(Prompt)
+        end)
     end
 
     ReleaseE()
