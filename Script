@@ -18,7 +18,7 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 local Window = Library:CreateWindow({
-    Title = "Speed | Orbs v5 (touch, no teleport)",
+    Title = "Speed | Orbs v6",
     Center = true,
     AutoShow = true,
     TabPadding = 8,
@@ -128,8 +128,10 @@ local OrbPassDelay = 0.1  -- пауза между полными прохода
 local DebugOrbs = true    -- показывать в окне, что скрипт нашёл (поставь false, когда заработает)
 
 local Orb = {
-    Enabled = false,
-    Token = 0, -- защита от запуска двух циклов одновременно
+    Enabled = false, -- включён хотя бы один из режимов
+    Touch = false,   -- удалённое касание (firetouchinterest)
+    Pull = false,    -- подтягивать орбы к игроку (персонаж стоит на месте)
+    Token = 0,       -- защита от запуска двух циклов одновременно
 }
 
 local function GetRoot()
@@ -192,18 +194,31 @@ local function StartOrbs()
                         break
                     end
 
-                    -- касаемся каждой парты внутри модели орба
                     if Object.Parent then
-                        local Parts = Object:IsA("BasePart") and {Object} or Object:GetDescendants()
+                        -- подтягиваем орб к игроку: орб приходит к нам, а не мы к нему
+                        if Orb.Pull then
+                            pcall(function()
+                                if Object:IsA("Model") then
+                                    Object:PivotTo(Root.CFrame)
+                                elseif Object:IsA("BasePart") then
+                                    Object.CFrame = Root.CFrame
+                                end
+                            end)
+                        end
 
-                        for _, Part in ipairs(Parts) do
-                            if Part:IsA("BasePart") and Part.Parent then
-                                pcall(TouchPart, Part, Root)
+                        -- касаемся каждой парты внутри модели орба
+                        if Orb.Touch and firetouchinterest then
+                            local Parts = Object:IsA("BasePart") and {Object} or Object:GetDescendants()
 
-                                -- чтобы при большом количестве парт игра не зависала
-                                Count = Count + 1
-                                if Count % 50 == 0 then
-                                    task.wait()
+                            for _, Part in ipairs(Parts) do
+                                if Part:IsA("BasePart") and Part.Parent then
+                                    pcall(TouchPart, Part, Root)
+
+                                    -- чтобы при большом количестве парт игра не зависала
+                                    Count = Count + 1
+                                    if Count % 50 == 0 then
+                                        task.wait()
+                                    end
                                 end
                             end
                         end
@@ -216,12 +231,22 @@ local function StartOrbs()
     end)
 end
 
+local function RefreshOrbs()
+    Orb.Enabled = Orb.Touch or Orb.Pull
+
+    if Orb.Enabled then
+        StartOrbs()
+    else
+        Orb.Token = Orb.Token + 1
+    end
+end
+
 local OrbBox = Tabs.Orbs:AddLeftGroupbox("Orbs")
 
-OrbBox:AddToggle("OrbToggle", {
-    Text = "Auto touch Orbs",
+OrbBox:AddToggle("OrbTouchToggle", {
+    Text = "Touch Orbs",
     Default = false,
-    Tooltip = "Удалённо касается всех парт орбов в workspace.__DEBRIS.HatchWarOrbs (без телепорта)",
+    Tooltip = "Удалённо касается парт орбов (firetouchinterest), без телепорта",
 
     Callback = function(Value)
         if Value and not firetouchinterest then
@@ -229,13 +254,19 @@ OrbBox:AddToggle("OrbToggle", {
             return
         end
 
-        Orb.Enabled = Value
+        Orb.Touch = Value
+        RefreshOrbs()
+    end
+})
 
-        if Value then
-            StartOrbs()
-        else
-            Orb.Token = Orb.Token + 1
-        end
+OrbBox:AddToggle("OrbPullToggle", {
+    Text = "Pull Orbs to me",
+    Default = false,
+    Tooltip = "Подтягивает орбы к тебе, персонаж не двигается",
+
+    Callback = function(Value)
+        Orb.Pull = Value
+        RefreshOrbs()
     end
 })
 
@@ -243,6 +274,8 @@ Library:OnUnload(function()
     Speed.Enabled = false
     StopSpeed()
 
+    Orb.Touch = false
+    Orb.Pull = false
     Orb.Enabled = false
     Orb.Token = Orb.Token + 1
 end)
