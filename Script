@@ -18,7 +18,7 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 local Window = Library:CreateWindow({
-    Title = "Speed | Orbs v6",
+    Title = "Speed | Orbs v7",
     Center = true,
     AutoShow = true,
     TabPadding = 8,
@@ -129,10 +129,19 @@ local DebugOrbs = true    -- показывать в окне, что скрип
 
 local Orb = {
     Enabled = false, -- включён хотя бы один из режимов
+    Claim = false,   -- сбор через серверный вызов HW_Orbs_Claim (без движения)
     Touch = false,   -- удалённое касание (firetouchinterest)
     Pull = false,    -- подтягивать орбы к игроку (персонаж стоит на месте)
     Token = 0,       -- защита от запуска двух циклов одновременно
 }
+
+local Claimed = {} -- [номер орба] = время последней попытки
+
+local function GetClaimRemote()
+    local Network = game:GetService("ReplicatedStorage"):FindFirstChild("Network")
+
+    return Network and Network:FindFirstChild("Instancing_InvokeCustomFromClient")
+end
 
 local function GetRoot()
     local Character = LocalPlayer.Character
@@ -195,6 +204,22 @@ local function StartOrbs()
                     end
 
                     if Object.Parent then
+                        -- забираем орб через сервер: номер берём из имени модели (LuckyOrb908052 -> 908052)
+                        if Orb.Claim then
+                            local Remote = GetClaimRemote()
+                            local Id = tonumber(string.match(Object.Name, "%d+$"))
+
+                            if Remote and Id and (not Claimed[Id] or tick() - Claimed[Id] > 3) then
+                                Claimed[Id] = tick()
+
+                                task.spawn(function()
+                                    pcall(function()
+                                        Remote:InvokeServer("HatchWar", "HW_Orbs_Claim", Id)
+                                    end)
+                                end)
+                            end
+                        end
+
                         -- подтягиваем орб к игроку: орб приходит к нам, а не мы к нему
                         if Orb.Pull then
                             pcall(function()
@@ -232,7 +257,7 @@ local function StartOrbs()
 end
 
 local function RefreshOrbs()
-    Orb.Enabled = Orb.Touch or Orb.Pull
+    Orb.Enabled = Orb.Claim or Orb.Touch or Orb.Pull
 
     if Orb.Enabled then
         StartOrbs()
@@ -242,6 +267,21 @@ local function RefreshOrbs()
 end
 
 local OrbBox = Tabs.Orbs:AddLeftGroupbox("Orbs")
+
+OrbBox:AddToggle("OrbClaimToggle", {
+    Text = "Claim Orbs (remote)",
+    Default = false,
+    Tooltip = "Забирает орбы серверным вызовом HW_Orbs_Claim, без телепорта и без движения",
+
+    Callback = function(Value)
+        if Value and not GetClaimRemote() then
+            Library:Notify("Claim: не найден ReplicatedStorage.Network.Instancing_InvokeCustomFromClient", 6)
+        end
+
+        Orb.Claim = Value
+        RefreshOrbs()
+    end
+})
 
 OrbBox:AddToggle("OrbTouchToggle", {
     Text = "Touch Orbs",
@@ -274,6 +314,7 @@ Library:OnUnload(function()
     Speed.Enabled = false
     StopSpeed()
 
+    Orb.Claim = false
     Orb.Touch = false
     Orb.Pull = false
     Orb.Enabled = false
