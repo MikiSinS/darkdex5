@@ -113,12 +113,11 @@ SpeedBox:AddInput("SpeedValue", {
 })
 
 -- =========================================
--- ORBS (авто-сбор: подлетаем к каждому орбу)
+-- ORBS (удалённое касание, без телепорта)
 -- =========================================
 
-local OrbStayTime = 0.2   -- сколько секунд стоим у каждого орба
-local OrbPassDelay = 0.2  -- пауза между полными проходами
-local DebugOrbs = true   -- показывать в окне, что скрипт нашёл (поставь false, когда заработает)
+local OrbPassDelay = 0.1  -- пауза между полными проходами
+local DebugOrbs = true    -- показывать в окне, что скрипт нашёл (поставь false, когда заработает)
 
 local Orb = {
     Enabled = false,
@@ -135,23 +134,9 @@ local function GetRoot()
     return Character:FindFirstChild("HumanoidRootPart")
 end
 
--- Позиция орба: парта Orb внутри модели (LuckyOrb... > Orb), иначе Center, иначе сама модель/парта.
-local function GetOrbPosition(Object)
-    local Center = Object:FindFirstChild("Orb", true) or Object:FindFirstChild("Center", true)
-
-    if Center and Center:IsA("BasePart") then
-        return Center.Position
-    end
-
-    if Object:IsA("BasePart") then
-        return Object.Position
-    end
-
-    if Object:IsA("Model") then
-        return Object:GetPivot().Position
-    end
-
-    return nil
+local function TouchPart(Part, Root)
+    firetouchinterest(Root, Part, 0)
+    firetouchinterest(Root, Part, 1)
 end
 
 local function StartOrbs()
@@ -181,11 +166,10 @@ local function StartOrbs()
                 else
                     Library:Notify(
                         string.format(
-                            "Orbs: найдено %d | первый: %s (%s) | pos: %s",
+                            "Orbs: найдено %d | первый: %s (%s)",
                             #Children,
                             Children[1].Name,
-                            Children[1].ClassName,
-                            tostring(GetOrbPosition(Children[1]))
+                            Children[1].ClassName
                         ),
                         8
                     )
@@ -193,32 +177,29 @@ local function StartOrbs()
             end
 
             if Root and #Children > 0 then
-                local Character = Root.Parent
-                local Origin = Root.CFrame
+                local Count = 0
 
                 for _, Object in ipairs(Children) do
-                    if not IsActive() or not Root.Parent then
+                    if not IsActive() then
                         break
                     end
 
-                    local Position = Object.Parent and GetOrbPosition(Object)
+                    -- касаемся каждой парты внутри модели орба
+                    if Object.Parent then
+                        local Parts = Object:IsA("BasePart") and {Object} or Object:GetDescendants()
 
-                    if Position then
-                        -- каждый кадр удерживаем персонажа в точке орба
-                        local Until = tick() + OrbStayTime
+                        for _, Part in ipairs(Parts) do
+                            if Part:IsA("BasePart") and Part.Parent then
+                                pcall(TouchPart, Part, Root)
 
-                        while tick() < Until and IsActive() and Root.Parent do
-                            Character:PivotTo(CFrame.new(Position))
-                            Root.AssemblyLinearVelocity = Vector3.zero
-                            task.wait()
+                                -- чтобы при большом количестве парт игра не зависала
+                                Count = Count + 1
+                                if Count % 50 == 0 then
+                                    task.wait()
+                                end
+                            end
                         end
                     end
-                end
-
-                -- возвращаем на прежнее место
-                if Root.Parent then
-                    Character:PivotTo(Origin)
-                    Root.AssemblyLinearVelocity = Vector3.zero
                 end
             end
 
@@ -232,20 +213,20 @@ local OrbBox = Tabs.Orbs:AddLeftGroupbox("Orbs")
 OrbBox:AddToggle("OrbToggle", {
     Text = "Auto touch Orbs",
     Default = false,
-    Tooltip = "Подлетает к каждому орбу в workspace.__DEBRIS.HatchWarOrbs и возвращается назад",
+    Tooltip = "Удалённо касается всех парт орбов в workspace.__DEBRIS.HatchWarOrbs (без телепорта)",
 
     Callback = function(Value)
+        if Value and not firetouchinterest then
+            Library:Notify("firetouchinterest не поддерживается твоим экзекьютором", 5)
+            return
+        end
+
         Orb.Enabled = Value
 
         if Value then
             StartOrbs()
         else
             Orb.Token = Orb.Token + 1
-
-            local Root = GetRoot()
-            if Root then
-                Root.Anchored = false
-            end
         end
     end
 })
@@ -256,9 +237,4 @@ Library:OnUnload(function()
 
     Orb.Enabled = false
     Orb.Token = Orb.Token + 1
-
-    local Root = GetRoot()
-    if Root then
-        Root.Anchored = false
-    end
 end)
