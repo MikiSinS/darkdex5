@@ -23,6 +23,7 @@ local EHoldTime = 1
 local EggWaitAfter = 1
 local BaseTeleportTime = 1
 local HeightAboveBase = 100
+local MaxPresses = 5 -- сколько раз пробуем зажать E на одном яйце, потом всё равно летим на плот
 
 -- URL этого скрипта для Auto Execute после телепорта
 local ScriptURL = "https://raw.githubusercontent.com/MikiSinS/darkdex5/main/Script"
@@ -230,65 +231,33 @@ local function TeleportToOwnPlot()
     local Baseplate = GetOwnBaseplate()
 
     if not Baseplate then
+        pcall(function()
+            Library:Notify("Свой плот не найден (Plots > Data > Owner)", 4)
+        end)
         return false
     end
 
+    -- Всегда летим на HeightAboveBase выше своего плота.
     local BasePosition = Baseplate.Position
-    local CurrentPosition = pl.Position
+    local TargetPosition = Vector3.new(
+        BasePosition.X,
+        BasePosition.Y + HeightAboveBase,
+        BasePosition.Z
+    )
 
-    local BaseY = BasePosition.Y
-    local CurrentY = CurrentPosition.Y
+    pl.Anchored = true
+    pl.AssemblyLinearVelocity = Vector3.zero
+    pl.AssemblyAngularVelocity = Vector3.zero
 
-    if BaseY < CurrentY then
-        pl.Anchored = true
+    SmoothTeleport(CFrame.new(TargetPosition), BaseTeleportTime)
 
-        pl.CFrame = CFrame.new(
-            CurrentPosition.X,
-            BaseY + HeightAboveBase,
-            CurrentPosition.Z
-        )
-
-        if not Enabled then
-            DisableFlight()
-            return false
-        end
-
-        local FlyPosition = Vector3.new(
-            BasePosition.X,
-            BaseY + HeightAboveBase,
-            BasePosition.Z
-        )
-
-        SmoothTeleport(
-            CFrame.new(FlyPosition),
-            BaseTeleportTime
-        )
-
-        if not Enabled then
-            DisableFlight()
-            return false
-        end
-
+    if not Enabled then
         DisableFlight()
-    else
-        local FlyPosition = Vector3.new(
-            BasePosition.X,
-            CurrentY,
-            BasePosition.Z
-        )
-
-        SmoothTeleport(
-            CFrame.new(FlyPosition),
-            BaseTeleportTime
-        )
-
-        if not Enabled then
-            DisableFlight()
-            return false
-        end
-
-        DisableFlight()
+        return false
     end
+
+    pl.CFrame = CFrame.new(TargetPosition)
+    DisableFlight()
 
     return true
 end
@@ -314,7 +283,9 @@ local function CollectEgg(egg)
         return
     end
 
-    while egg.Parent and Enabled do
+    local Presses = 0
+
+    while egg.Parent and Enabled and Presses < MaxPresses do
         if Handle.Parent then
             pl.CFrame = Handle.CFrame
         else
@@ -322,6 +293,7 @@ local function CollectEgg(egg)
         end
 
         PressE()
+        Presses = Presses + 1
 
         local StartTime = tick()
 
