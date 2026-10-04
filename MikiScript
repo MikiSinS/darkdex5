@@ -175,8 +175,20 @@ local function SetNoClip(State)
     end
 end
 
-local function PressE()
+local function PressE(Prompt)
     local Released = false
+
+    -- Берём клавишу прямо из подсказки (если там не E), иначе E.
+    local KeyCode = Enum.KeyCode.E
+    if Prompt and Prompt.KeyboardKeyCode ~= Enum.KeyCode.Unknown then
+        KeyCode = Prompt.KeyboardKeyCode
+    end
+
+    -- Держим не меньше, чем нужно самой подсказке.
+    local HoldTime = EHoldTime
+    if Prompt then
+        HoldTime = math.max(EHoldTime, Prompt.HoldDuration + 0.3)
+    end
 
     local function ReleaseE()
         if Released then
@@ -185,26 +197,39 @@ local function PressE()
 
         Released = true
 
+        if Prompt then
+            pcall(function()
+                Prompt:InputHoldEnd()
+            end)
+        end
+
         pcall(function()
             VirtualInputManager:SendKeyEvent(
                 false,
-                Enum.KeyCode.E,
+                KeyCode,
                 false,
                 game
             )
         end)
     end
 
+    -- Зажимаем и через саму подсказку, и клавишей (страховка).
+    if Prompt then
+        pcall(function()
+            Prompt:InputHoldBegin()
+        end)
+    end
+
     pcall(function()
         VirtualInputManager:SendKeyEvent(
             true,
-            Enum.KeyCode.E,
+            KeyCode,
             false,
             game
         )
     end)
 
-    local EndTime = tick() + EHoldTime
+    local EndTime = tick() + HoldTime
 
     while tick() < EndTime do
         if not Enabled then
@@ -434,8 +459,22 @@ local function CollectEgg(egg)
     StartEggHover(Handle)
     pl.Anchored = true
 
-    -- Одно полное нажатие E: ровно 2 секунды.
-    PressE()
+    -- Ждём, пока персонаж реально окажется у яйца, и только потом жмём E.
+    local HoverPosition = Handle.Position + Vector3.new(0, 2, 0)
+    local ArriveEnd = tick() + 1.5
+
+    while Enabled
+        and tick() < ArriveEnd
+        and pl and pl.Parent
+        and (pl.Position - HoverPosition).Magnitude > 3 do
+        task.wait()
+    end
+
+    task.wait(0.15)
+
+    -- Одно полное зажатие E на подсказке яйца.
+    local Prompt = egg:FindFirstChildWhichIsA("ProximityPrompt", true)
+    PressE(Prompt)
 
     if not Enabled then
         StopEggHover()
