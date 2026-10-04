@@ -18,7 +18,7 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 local Window = Library:CreateWindow({
-    Title = "Speed",
+    Title = "Speed | Orbs v5 (touch, no teleport)",
     Center = true,
     AutoShow = true,
     TabPadding = 8,
