@@ -18,7 +18,8 @@ local Window = Library:CreateWindow({
 })
 
 local Tabs = {
-    Main = Window:AddTab("Main")
+    Main = Window:AddTab("Main"),
+    Orbs = Window:AddTab("Orbs")
 }
 
 -- =========================================
@@ -111,7 +112,94 @@ SpeedBox:AddInput("SpeedValue", {
     end
 })
 
+-- =========================================
+-- ORBS (удалённое касание)
+-- =========================================
+
+local TouchDelay = 0.1 -- пауза между полными проходами по всем парт
+
+local Orb = {
+    Enabled = false,
+    Token = 0, -- защита от запуска двух циклов одновременно
+}
+
+local function GetRoot()
+    local Character = LocalPlayer.Character
+
+    if not Character then
+        return nil
+    end
+
+    return Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function TouchPart(Part, Root)
+    firetouchinterest(Root, Part, 0)
+    firetouchinterest(Root, Part, 1)
+end
+
+local function StartOrbs()
+    Orb.Token = Orb.Token + 1
+    local MyToken = Orb.Token
+
+    task.spawn(function()
+        while Orb.Enabled and Orb.Token == MyToken do
+            local Root = GetRoot()
+            local Things = workspace:FindFirstChild("__THINGS")
+            local Orbs = Things and Things:FindFirstChild("Orbs")
+
+            if Root and Orbs then
+                local Count = 0
+
+                for _, Object in ipairs(Orbs:GetDescendants()) do
+                    if not Orb.Enabled or Orb.Token ~= MyToken then
+                        break
+                    end
+
+                    if Object:IsA("BasePart") and Object.Parent then
+                        pcall(TouchPart, Object, Root)
+
+                        -- чтобы при большом количестве парт игра не зависала
+                        Count = Count + 1
+                        if Count % 50 == 0 then
+                            task.wait()
+                        end
+                    end
+                end
+            end
+
+            task.wait(TouchDelay)
+        end
+    end)
+end
+
+local OrbBox = Tabs.Orbs:AddLeftGroupbox("Orbs")
+
+OrbBox:AddToggle("OrbToggle", {
+    Text = "Auto touch Orbs",
+    Default = false,
+    Tooltip = "Автоматически касается всех парт в workspace.__THINGS.Orbs",
+
+    Callback = function(Value)
+        if Value and not firetouchinterest then
+            Library:Notify("firetouchinterest не поддерживается твоим экзекьютором", 5)
+            return
+        end
+
+        Orb.Enabled = Value
+
+        if Value then
+            StartOrbs()
+        else
+            Orb.Token = Orb.Token + 1
+        end
+    end
+})
+
 Library:OnUnload(function()
     Speed.Enabled = false
     StopSpeed()
+
+    Orb.Enabled = false
+    Orb.Token = Orb.Token + 1
 end)
