@@ -1,4 +1,4 @@
-local time = 0.5
+local time = 1
 local args = {
     [1] = "50KCCU"
 }
